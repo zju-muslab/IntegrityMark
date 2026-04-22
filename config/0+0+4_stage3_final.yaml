@@ -77,17 +77,17 @@ wm_msg:
 # Stage 3: Maximum perceptual loss for audio quality optimization
 optimize:
   fix_layers: False
-  batch_size: 6
-  lr: 0.0001
-  lambda_wav: 1         # Full audio quality loss
-  lambda_loud: 500      # Maximum loudness constraint
-  lambda_msmel: 1       # Full mel-spectrogram loss
-  lambda_wav2vec: 100   # FULL perceptual loss weight
-  lambda_wm_det: 50
+  batch_size: 12        
+  lr: 0.001             
+  lambda_wav: 10        
+  lambda_loud: 500      
+  lambda_msmel: 10      
+  lambda_wav2vec: 1     
+  lambda_wm_det: 100    
   lambda_wm_rec_fix: 0
   lambda_wm_rec_temp: 0
-  lambda_wm_rec_val: 100
-  lambda_boundary_rec: 1000  # Full boundary detection
+  lambda_wm_rec_val: 100  
+  lambda_boundary_rec: 0  
   lambda_adv_g: 0
   lambda_adv_g_map: 0
   lambda_adv_d: 0

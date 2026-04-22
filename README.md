@@ -96,22 +96,12 @@ mkdir -p data/speech
 ---
 
 # Steps to Train the Model
-
+## Curriculum Training Strategy
 IntegrityMark uses **curriculum learning** strategy for robust watermarking. The training is organized in three progressive stages:
 
 - **Stage 1**: Basic watermark embedding (0-10k steps) - focus on learning to embed watermarks without augmentation
 - **Stage 2**: Robustness training (10k+ steps) - add data augmentation and progressive difficulty
 - **Stage 3**: Final optimization - maximize audio quality with full augmentation
-
-## Quick Start: Train with Default Configuration
-
-Train using the main configuration:
-
-```bash
-python train.py --config-name 0+0+4
-```
-
-## Curriculum Training Strategy
 
 For best results, follow the three-stage curriculum approach:
 
