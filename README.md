@@ -2,7 +2,7 @@
 
 This is an official implementation of the paper **"IntegrityMark: Tamper-Resistant Watermarking for Real-Time Audio Integrity Protection"**
 
-IntegrityMark is a research codebase for robust speech watermarking, watermark detection, and low-latency streaming watermark injection. The repository contains training, evaluation, detection, and client/server streaming utilities built around the project's `WMEmbedder` and `WMExtractor` models.
+**Abstract**:The vast stream of authentic audio from live stream-ing platforms has created a new attack surface for fabricatingdisinformation through malicious splicing. This threat subvertsexisting audio watermarking defenses, as their reliance on a staticcheck for watermark presence can verify a segment’s authenticity but is fundamentally blind to its sequential order. There remains a critical gap in guaranteeing sequential integrity beyond merely verifying the origin source. To fill this gap, we propose IntegrityMark, a watermark-based audio integrity verification system that enables active tamper detection and localization. We first design an audio watermarking framework for sample-level watermark generation and detection. When content integrity is compromised, IntegrityMark can report the watermark presence and corresponding watermark message at each sample point. On this basis, we verify audio integrity in a two-step mechanism. First, it checks for watermark survival through the watermark existence bit. Second, to detect in-source splicing, it verifies the continuity of sequential patterns by performing a dual-check of the watermark’s message state and duration. Experimental results show that IntegrityMark effectively detects tampering with 99.9% F1-score for cross-source (including AI-generated speech) and 97.5% for in-source attacks, while maintaining efficient streaming performance with 22.8ms latency.
 
 ## Repository Layout
 
@@ -47,16 +47,7 @@ Optional: For streaming/real-time features (WebSocket client/server):
 pip install -e .[stream]
 ```
 
-**Core dependencies** (automatically installed):
-- PyTorch 2.1+, torchaudio 2.1+
-- Hydra, OmegaConf (configuration management)
-- librosa, julius (audio processing)
-- numpy, scipy, pandas (data processing)
-- PESQ, PySTOI, matplotlib (evaluation and visualization)
-- wandb (experiment tracking)
 
-**Streaming optional dependencies**:
-- sounddevice, websockets (real-time audio I/O)
 
 ### Step 3: Download Pretrained Models
 
@@ -99,25 +90,12 @@ mkdir -p data/speech
 # Add your WAV files (16kHz sample rate)
 ```
 
----
 
-## Implementation Notes
 
-This implementation follows the IntegrityMark paper ("Tamper-Resistant Watermarking for Real-Time Audio Integrity Protection") with the following key parameters:
-
-**Paper vs. Implementation**:
-- Dataset: LibriSpeech (clean, 360 hours) - ✓ matches paper
-- Training epochs: 200 - ✓ matches paper
-- Watermark message: 4-bit validation (V=4) - ✓ matches paper
-- Segment lengths: 512-2064 samples, increment 32 - ✓ matches paper
-- **Batch size**: 6 (paper specifies 12, optimized for GPU memory)
-- **Learning rate**: 1×10⁻⁴ (paper specifies 1×10⁻³, empirically tuned)
-
-All loss functions, model architectures (Demucs + SeaNet), and curriculum learning strategy are implemented exactly as specified in the paper.
 
 ---
 
-# PART 1: Steps to Train the Model
+# Steps to Train the Model
 
 IntegrityMark uses **curriculum learning** strategy for robust watermarking. The training is organized in three progressive stages:
 
@@ -175,47 +153,8 @@ Fine-tune with maximum audio quality constraints:
 # Stage 3: Full optimization, maximum perceptual loss
 python train.py --config-name 0+0+4_stage3_final \
   continue_from_ckpt=checkpoints/stage2_checkpoint.pth
-
 ```
 
-
-<!-- 
-## Training with Custom Dataset
-
-You can override the dataset path at any stage:
-
-```bash
-python train.py --config-name 0+0+4_stage1_basic \
-  dataset.path.raw_path=/path/to/your/LibriSpeech
-```
-
-Supported dataset formats:
-- **LibriSpeech**: `dataset/LibriSpeech` (recommended)
-- **CommonVoice**: `dataset/CommonVoice`
-- **Custom audio**: `data/speech` (WAV files, 16kHz sample rate)
-
-## Disable W&B (Optional, Recommended for Quick Testing)
-
-```bash
-export WANDB_DISABLED=true
-python train.py --config-name 0+0+4_stage1_basic
-```
-
-## Available Training Configurations
-
-| Config Name | Purpose | Use Case |
-|------------|---------|----------|
-| `0+0+4_stage1_basic.yaml` | Stage 1: Basic embedding | Initial watermark learning (no augmentation) |
-| `0+0+4_stage2_augment.yaml` | Stage 2: Robustness | Add robustness to distortions |
-| `0+0+4_stage3_final.yaml` | Stage 3: Optimization | Final quality optimization |
-| `0+0+4.yaml` | Full training | One-stage training (for quick testing) |
-| `basic.yaml` | Minimal config | Quick tests and debugging |
-| `sweep.yaml` | Hyperparameter sweep | Grid/random search over parameters |
-
-View all configurations:
-```bash
-python train.py --help
-``` -->
 
 ## Training Outputs
 
@@ -227,20 +166,11 @@ outputs/
 ├── logs/          # Training logs and metrics
 └── wav/           # Generated audio samples during training
 ```
-<!-- 
-### Save Important Checkpoints
 
-```bash
-# After each stage, save the checkpoint for next stage
-mkdir -p checkpoints
-cp outputs/ckpt/0+0+4_stage1/0+0+4_stage1_*.pth checkpoints/stage1_model.pth
-cp outputs/ckpt/0+0+4_stage2/0+0+4_stage2_*.pth checkpoints/stage2_model.pth
-cp outputs/ckpt/0+0+4_stage3/0+0+4_stage3_*.pth checkpoints/final_model.pth
-``` -->
 
 ---
 
-# PART 2: Steps to Evaluate the Model
+# Steps to Evaluate the Model
 
 ## Quick Evaluation
 
