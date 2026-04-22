@@ -1,0 +1,109 @@
+defaults:
+  - basic
+
+project_name: "stream_wm"
+notes: "Curriculum Stage 1: Basic watermark embedding (0-10k steps, no augmentation)"
+experiment_name: 0+0+4_stage1
+scenario_name: "None"
+seed: 3407
+
+embedder: demucs_temp
+detector: seanet_detector
+
+dataset:
+  dataset_name: "LibriSpeech"
+  path:
+    raw_path: "./dataset/LibriSpeech"
+  audio:
+    max_len: 60000
+
+model:
+  temp_msg_dimension:
+    demucs: 128
+  demucs_temp:
+    chin_wav: 1
+    chin_wm: 128
+    depth: 5
+  seanet_detector:
+    n_residual_layers: 3
+
+path:
+  wm_speech: ./outputs/wav/${experiment_name}
+  ckpt: ./outputs/ckpt/${experiment_name}
+  log_dir: outputs/logs/${experiment_name}
+
+augmentation:
+  select_aug_mode: "weighted"
+  # Stage 1: NO data augmentation - disable by setting aug_starts_from very large
+  aug_starts_from: 999999
+
+  aug_weights:
+    speed: 0
+    updownresample: 0
+    quantize_audio: 0
+    echo: 0
+    pink_noise: 0
+    lowpass_filter: 0
+    random_noise: 0
+    highpass_filter: 0
+    bandpass_filter: 0
+    smooth: 0
+    boost_audio: 0
+    duck_audio: 0
+    mp3_compression: 0
+    aac_compression: 0
+    encodec: 0
+    identity: 1  # only identity (no augmentation)
+
+wm_msg:
+  fix:
+    length: 0
+  temp:
+    length: 0
+    interval: 2000 #32bps
+    interval_range: False
+  val:
+    length: 4
+    d_min: 512
+    d_max: 2064
+    increment: 32
+    interval: 512
+    interval_range: [1,2]
+
+# Stage 1: Lower perceptual loss weight, focus on basic watermark embedding
+optimize:
+  fix_layers: False
+  batch_size: 6
+  lr: 0.0001
+  lambda_wav: 0.5       # Lower audio quality loss - focus on watermark first
+  lambda_loud: 200      # Lower loudness constraint
+  lambda_msmel: 0.5     # Lower mel-spectrogram loss
+  lambda_wav2vec: 50    # REDUCED perceptual loss for stage 1
+  lambda_wm_det: 50
+  lambda_wm_rec_fix: 0
+  lambda_wm_rec_temp: 0
+  lambda_wm_rec_val: 100
+  lambda_boundary_rec: 500  # Lower boundary loss in stage 1
+  lambda_adv_g: 0
+  lambda_adv_g_map: 0
+  lambda_adv_d: 0
+
+crop:
+  prob: 0.3
+  shuffle_prob: 0
+  pad_prob: 0.2
+  insert_prob: 0.5
+  insert_size: [8000, 16000]
+  clip_starts_from: 999999  # No tampering augmentation in stage 1
+  clip_size: 0.1
+  size: 0.5
+  max_n_windows: 3
+
+iter:
+  finetune_epoch: 20
+  max_epoch: 50            # Shorter stage 1: ~10k steps with steps_per_epoch=200
+  save_sample_by_step: 100
+  wandb_log_by_step: 1
+  steps_per_epoch: 200     # Reduced for stage 1
+  save_skpt_by_epoch: 1
+  eval_by_epoch: 1

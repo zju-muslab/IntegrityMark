@@ -1,0 +1,124 @@
+# IntegrityMark Training Configuration
+# This config implements the curriculum learning strategy from the paper.
+#
+# Note on hyperparameters vs. paper:
+# - Batch size: 6 (paper: 12) - optimized for GPU memory constraints
+# - Learning rate: 1e-4 (paper: 1e-3) - empirically tuned for stable convergence
+# - All other settings follow the paper specification exactly
+
+defaults:
+  - basic
+
+project_name: "stream_wm"
+notes: "bit0+4+2+wav2vec+voxpopuli"
+experiment_name: 0+0+4
+scenario_name: "None"
+seed: 3407
+
+
+embedder: demucs_temp
+detector: seanet_detector
+
+dataset:
+  dataset_name: "LibriSpeech"
+  path:
+    raw_path: "./dataset/LibriSpeech"
+  audio:
+    max_len: 60000
+
+model:
+  temp_msg_dimension:
+    demucs: 128
+  demucs_temp:
+    chin_wav: 1
+    chin_wm: 128
+    depth: 5
+  seanet_detector:
+    n_residual_layers: 3
+
+path:
+  wm_speech: ./outputs/wav/${experiment_name}
+  ckpt: ./outputs/ckpt/${experiment_name}
+  log_dir: outputs/logs/${experiment_name}
+
+init_from_ckpt: /home/chenqn/dev/watermark/outputs/ckpt/0+0+4/0+0+4_ep_34_2025-02-26_22_03_37.pth
+
+continue_from_ckpt: /home/chenqn/dev/watermark/outputs/ckpt/0+0+4/0+0+4_ep_48_2025-04-04_01_39_20.pth
+
+augmentation:
+  select_aug_mode: "weighted" 
+  aug_starts_from: 45000
+
+  aug_weights:
+    speed: 0
+    updownresample: 0.2
+    quantize_audio: 0
+    echo: 0 # nan
+    pink_noise: 0.2
+    lowpass_filter: 0.2
+    random_noise: 0.4
+    highpass_filter: 0.2
+    bandpass_filter: 0.2
+    smooth: 0.2
+    boost_audio: 0.2
+    duck_audio: 0.2
+    mp3_compression: 0.2 # eval only never use in training even if eval_acc low
+    aac_compression: 0.2 # eval only never use in training even if eval_acc low
+    encodec: 0
+    identity: 0 # no augmentation
+    
+
+wm_msg:
+  fix:
+    length: 0
+
+  temp:
+    length: 0
+    interval: 2000 #32bps
+    interval_range: False
+
+  val:
+    length: 4
+    d_min: 512
+    d_max: 2064  # Updated to match paper specification
+    increment: 32
+    # no use
+    interval: 512
+    interval_range: [1,2]
+
+optimize:
+  fix_layers: False
+  batch_size: 6
+  lr: 0.0001 #0.0005
+  lambda_wav: 1 #10
+  lambda_loud: 500 #500
+  lambda_msmel: 1 #1
+  lambda_wav2vec: 100 #100
+  lambda_wm_det: 50 #10
+  lambda_wm_rec_fix: 0 #100
+  lambda_wm_rec_temp: 0 #200
+  lambda_wm_rec_val: 100
+  lambda_boundary_rec: 1000 #5000
+  lambda_adv_g: 0 #5
+  lambda_adv_g_map: 0 #0.1
+  lambda_adv_d: 0 #1
+
+crop:
+  prob: 0.3
+  shuffle_prob: 0
+  pad_prob: 0.2  # shuffle_prob + pad_prob + prob <= 1
+  insert_prob: 0.5
+  insert_size: [8000, 16000]
+  clip_starts_from: 10000
+  clip_size: 0.1
+  size: 0.5
+  max_n_windows: 3
+
+iter:
+  finetune_epoch: 20
+  max_epoch: 200
+  save_sample_by_step: 100
+  wandb_log_by_step: 1
+  steps_per_epoch: 1000
+  save_skpt_by_epoch: 1
+  eval_by_epoch: 1

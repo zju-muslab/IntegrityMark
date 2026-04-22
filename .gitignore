@@ -1,0 +1,81 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Project-local tooling
+.codex
+.claude/
+.hydra/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Build / packaging
+build/
+dist/
+*.egg-info/
+
+# Logs and temp files
+*.log
+nohup.out
+
+# Notebooks and scratch files
+*.ipynb
+foo.ipynb
+
+# Audio and media artifacts
+*.wav
+*.mp3
+*.flac
+*.aac
+*.opus
+*.png
+*.jpg
+*.jpeg
+*.pdf
+*.zip
+*.tar
+*.tar.gz
+
+# Model weights and large binaries
+*.pt
+*.pth
+*.ckpt
+*.bin
+*.safetensors
+*.h5
+pretrained/**/*
+
+# Experiment outputs
+outputs/
+logs/
+wandb/
+experiments/
+
+# Local datasets
+dataset/LibriSpeech/
+dataset/multimedia/
+dataset/audio_samples/
+
+# Legacy / generated folders
+old_scripts/
+models/old_modules/
+
+# Keep documentation placeholders inside ignored trees when present
+!pretrained/
+!pretrained/**/
+!pretrained/**/*.md
+!experiments/
+!experiments/**/*.md

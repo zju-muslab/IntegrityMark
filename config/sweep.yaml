@@ -1,0 +1,69 @@
+defaults:
+  - basic
+
+embedder: demucs_temp
+detector: seanet_detector
+
+project_name: "stream_wm"
+experiment_name: sweep_gd
+scenario_name: "None"
+seed: 3407
+
+
+model:
+  temp_msg_dimension:
+    demucs: 128
+  demucs_temp:
+    chin_wav: 1
+    chin_wm: 128
+    depth: 5
+  seanet_detector:
+    n_residual_layers: 3
+
+path:
+  wm_speech: ./outputs/wav/${experiment_name}
+  ckpt: ./outputs/ckpt/${experiment_name}
+  log_dir: outputs/logs/${experiment_name}
+
+init_from_ckpt: False
+continue_from_ckpt: /home/chenqn/dev/watermark/outputs/ckpt/temp-chadd-bit0+8+2/temp-chadd-bit0+8+2_ep_19_2024-12-31_17_23_19.pth
+
+augmentation:
+  select_aug_mode: "weighted" 
+  aug_starts_from: 10000
+
+wm_msg:
+  fix:
+    length: 0
+  temp:
+    length: 10
+    circle_length: 2
+    interval: 128
+    interval_range: [0.5,4]
+
+optimize:
+  batch_size: 12
+  lr: 0.0005 #0.0005
+  lambda_wav: 10 #10
+  lambda_loud: 500 #1000
+  lambda_msmel: 1 #10
+  lambda_adv_g: 1 #5
+  lambda_adv_g_map: 0.1 #0.1
+  lambda_adv_d: 1 #1
+  lambda_wm_det: 50 #10
+  lambda_wm_rec_fix: 100 #100
+  lambda_wm_rec_temp: 200 #200
+
+
+crop:
+  clip_starts_from: 4000
+  clip_size: 0.1
+
+iter:
+  finetune_epoch: 20
+  max_epoch: 200
+  save_sample_by_step: 100
+  wandb_log_by_step: 1
+  steps_per_epoch: 1000
+  save_skpt_by_epoch: 1
+  eval_by_epoch: 1

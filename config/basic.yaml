@@ -1,0 +1,99 @@
+defaults:
+  - model
+  - dataset
+  - augmentation
+
+hydra:
+  run:
+    dir: .
+
+logfile: 'training_seanet.log'
+print_args: True
+
+device: 'cpu'
+
+attack_type: 0
+micro: 2
+sigma: 3
+
+adv:
+  adv_starts_from: 0
+  update_d_every: 1
+
+# wandb
+project_name: "watermark"
+experiment_name: "original"
+scenario_name: "None"
+seed: 0
+
+path:
+  wm_speech: ./outputs/wav/${experiment_name}
+  ckpt: ./outputs/ckpt/${experiment_name}
+  log_dir: outputs/logs
+
+finetune_both_encoder_decoder: True
+continue_from: False
+
+wm_msg:
+  fix:
+    length: 16
+  temp:
+    length: 0
+    circle_length: 0
+    interval: 512
+    interval_range: [0.5,4]
+
+crop:
+  prob: 0.3
+  shuffle_prob: 0
+  pad_prob: 0.2  # shuffle_prob + pad_prob + prob <= 1
+  insert_prob: 0.5
+  insert_size: [8000, 24000]
+  clip_starts_from: 10000
+  clip_size: 0.1
+  size: 0.5
+  max_n_windows: 5
+  
+  
+
+optimize:
+  lr: 0.0005
+  lambda_wav: 0.01
+  lambda_loud: 100
+  lambda_msmel: 0.01
+  lambda_adv_g: 1
+  lambda_adv_g_map: 1
+  lambda_adv_d: 0.1
+  lambda_wm_det: 1
+  
+  batch_size: 10
+  step_size: 2000 # large value means do not decay
+  gamma: 0.98
+  betas: [0.9, 0.98]
+  eps: 0.000000001
+  weight_decay: 0.0
+  grad_clip_thresh: 1.0
+  grad_acc_step: 1
+  up_step: 4000
+  anneal_steps: [2000, 4000, 8000, 16000, 32000]
+  anneal_rate: 0.3
+  lr_disc: 0.00002
+  alpha: 10
+  train_size: 31000
+
+  loss:
+    loudness:
+      temperature: 10
+      n_bands: 16
+  
+
+
+iter:
+  finetune_epoch: 20
+  epoch: 200
+  # epoch: 100
+  save_step: 2000
+  save_circle: 1
+  show_circle: 500
+  val_circle: 100
+  steps_per_epoch: 2000
