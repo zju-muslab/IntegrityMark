@@ -49,6 +49,10 @@ foo.ipynb
 *.tar
 *.tar.gz
 
+# Allow files in pics directory
+!pics/
+!pics/**
+
 # Model weights and large binaries
 *.pt
 *.pth
