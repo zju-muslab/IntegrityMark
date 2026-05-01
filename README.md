@@ -4,6 +4,21 @@ This is an official implementation of the paper **"IntegrityMark: Tamper-Resista
 
 **Abstract**:The vast stream of authentic audio from live stream-ing platforms has created a new attack surface for fabricatingdisinformation through malicious splicing. This threat subvertsexisting audio watermarking defenses, as their reliance on a staticcheck for watermark presence can verify a segment’s authenticity but is fundamentally blind to its sequential order. There remains a critical gap in guaranteeing sequential integrity beyond merely verifying the origin source. To fill this gap, we propose IntegrityMark, a watermark-based audio integrity verification system that enables active tamper detection and localization. We first design an audio watermarking framework for sample-level watermark generation and detection. When content integrity is compromised, IntegrityMark can report the watermark presence and corresponding watermark message at each sample point. On this basis, we verify audio integrity in a two-step mechanism. First, it checks for watermark survival through the watermark existence bit. Second, to detect in-source splicing, it verifies the continuity of sequential patterns by performing a dual-check of the watermark’s message state and duration. Experimental results show that IntegrityMark effectively detects tampering with 99.9% F1-score for cross-source (including AI-generated speech) and 97.5% for in-source attacks, while maintaining efficient streaming performance with 22.8ms latency.
 
+## Model Architecture
+
+IntegrityMark consists of two main components working in tandem:
+
+| Watermark Generator | Watermark Detector |
+|---|---|
+| ![Generator Architecture](./pics/generator.pdf) | ![Detector Architecture](./pics/detector.pdf) |
+
+**Key Features**:
+- **Sample-level watermark detection** for precise tampering localization
+- **Sequential integrity verification** to prevent in-source splicing attacks
+- **Real-time processing** with sub-30ms latency for streaming applications
+
+---
+
 ## Repository Layout
 
 ```text
@@ -90,8 +105,16 @@ mkdir -p data/speech
 # Add your WAV files (16kHz sample rate)
 ```
 
+### Step 5: Evaluation Dataset
 
+The comprehensive evaluation protocol includes multiple dataset configurations:
 
+| Type | Source Dataset | Description | Scale |
+|---|---|---|---|
+| **Base** | LS (test-clean) | Literary recitation in English | 2620 samples |
+| **Cross Dataset** | TIMIT, VCTK, VoxC, VoxP, CV | English speeches with diverse content, devices and speakers | 1000 samples per dataset |
+| **Cross Language** | CV | Arabic, Chinese, German, French, Hindi, Japanese, Korean, Russian, Spanish | 1000 samples per language |
+| **Cross Media** | Customed | Music mixing, podcast records, video live streaming | 100 10s samples per category |
 
 ---
 
