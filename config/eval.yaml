@@ -2,7 +2,7 @@ defaults:
   - dataset
   - augmentation
 
-# ckpt_name: '16+2'
+
 ckpt_name: '0+4'
 ckpt_path: False
 
@@ -12,7 +12,7 @@ augmentation:
       noise_std: 0.0001
     mp3_compression:
       sample_rate: ${sample_rate}
-      bitrate: 64k # should be a string e.g. "8k", "32k".. cf ffmpeg to see available bitrates
+      bitrate: 64k
     aac_compression:
       sample_rate: ${sample_rate}
       bitrate: 64k
@@ -23,17 +23,17 @@ augmentation:
 aug_weights:
   speed: 0
   updownresample: 0
-  echo: 0 # nan
+  echo: 0
   quantize_audio: 0
-  pink_noise: 0 #1
+  pink_noise: 0
   lowpass_filter: 0
   highpass_filter: 0
   bandpass_filter: 0
   smooth: 0
   boost_audio: 0
   duck_audio: 0
-  mp3_compression: 0 #1 # eval only never use in training even if eval_acc low
-  aac_compression: 0 # eval only never use in training even if eval_acc low
-  opus_compression: 0 # eval only never use in training even if eval_acc low
+  mp3_compression: 0
+  aac_compression: 0
+  opus_compression: 0
   encodec: 0
-  identity: 0 # no augmentation
+  identity: 0

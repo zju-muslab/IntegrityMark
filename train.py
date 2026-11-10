@@ -23,7 +23,7 @@ from torch.utils.data import DataLoader
 
 from utils.tools import load_ckpt,save_ckpt
 from itertools import chain
-# from torch.optim.lr_scheduler import StepLR
+
 from scipy.stats import multivariate_normal
 
 import time
@@ -34,11 +34,11 @@ from distortions.audio_effects import (
 
 from utils.wm_process import crop, MsgGenerator
 
-# from My_model.modules import Encoder, Decoder, Discriminator
+
 from models.old_modules.msstft import MultiScaleSTFTDiscriminator
 
-# from model.My_model.privacy_wm import WMEmbedder
-# from models.WMBuilder import WMEmbedder, WMExtractor
+
+
 from models.WMbuilder import WMEmbedder,WMExtractor
 from dataset.data import wav_dataset as used_dataset
 
@@ -65,29 +65,29 @@ def main(args):
     lambda_wm_rec_fix = args["optimize"]["lambda_wm_rec_fix"]
     lambda_wm_rec_temp = args["optimize"]["lambda_wm_rec_temp"]
     lambda_wm_rec_val = args["optimize"]["lambda_wm_rec_val"]
-    lambda_adv_d = args["optimize"]["lambda_adv_d"] # modify weights of m and a for better convergence
-    lambda_adv_g = args["optimize"]["lambda_adv_g"] # modify weights of m and a for better convergence
-    lambda_adv_g_map = args["optimize"]["lambda_adv_g_map"] # modify weights of m and a for better convergence
-    # lambda_penalty_det = args["optimize"]["lambda_penalty_det"] # modify weights of m and a for better convergence
-    # lambda_penalty_rec = args["optimize"]["lambda_penalty_rec"] # modify weights of m and a for better convergence
+    lambda_adv_d = args["optimize"]["lambda_adv_d"]
+    lambda_adv_g = args["optimize"]["lambda_adv_g"]
+    lambda_adv_g_map = args["optimize"]["lambda_adv_g_map"]
+
+
     lambda_wav2vec= args["optimize"]["lambda_wav2vec"]
 
     msg_fix_length = args.wm_msg.fix.length
     msg_temp_length = args.wm_msg.temp.length
     msg_val_length = args.wm_msg.val.length
     lambda_boundary_rec = args["optimize"]["lambda_boundary_rec"]
-    
 
 
-    # ---------------- Init logger
+
+
     current_time = datetime.datetime.now().strftime("%y-%m-%d-%H:%M")
     logfile=os.path.join(args.path.log_dir, f"{args.experiment_name}#{current_time}.log")
     logger = get_logger(log_file=logfile)
-    
+
     if args.print_args:
         logger.info(f"Arguments: {OmegaConf.to_yaml(args)}")
 
-    # -------------- load dataset
+
     train_audios = used_dataset(config=args.dataset, flag='train')
     val_audios = used_dataset(config=args.dataset,flag='test',test_num=100)
     batch_size = args.optimize.batch_size
@@ -95,7 +95,7 @@ def main(args):
     train_audio_loader = DataLoader(train_audios, batch_size=batch_size, shuffle=True, num_workers=8)
     val_audios_loader = DataLoader(val_audios, batch_size=1, shuffle = False)
 
-    # -------------- build model
+
     logger.info('building model')
 
     embedder = WMEmbedder(model_config=args.model, klass=args.embedder, msg_fix_nbits=msg_fix_length, msg_temp_nbits=msg_temp_length, msg_val_nbits=msg_val_length).to(device)
@@ -120,17 +120,17 @@ def main(args):
         discriminator_params = sum(p.numel() for p in discriminator.parameters() if p.requires_grad)
         logger.info(f"Number of parameters in discriminator: {discriminator_params/1000/1000:.1f} M")
 
-    # -------------- audio effects
-    effects = get_audio_effects(args.augmentation)  # noqa
+
+    effects = get_audio_effects(args.augmentation)
 
     aug_weights = {}
     for name in effects.keys():
         aug_weights[name] =args.augmentation.aug_weights.get(name, -1)
-    augmentations = {**effects}  # noqa
+    augmentations = {**effects}
 
-    # -------------- optimizer
+
     if args.optimize.fix_layers:
-        
+
         for name, param in embedder.named_parameters():
             frozen_layers = [0, 1, 2, 3]
             if any(f'decoder.{i}.' in name for i in frozen_layers):
@@ -150,18 +150,18 @@ def main(args):
         lr = args["optimize"]["lr"]
     )
 
-#     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-#     en_de_optim, 
-#     mode='min',
-#     factor=0.1,    # 每次降低为原来的0.1倍
-#     patience=10,   # 10个epoch没改善就降低lr
-#     min_lr=1e-6    # 最小lr
-# )
-    
-    # -------------- continue from ckpt
+
+
+
+
+
+
+
+
+
     init_epoch = 0
     global_step = -1
-    
+
     if getattr(args, "init_from_ckpt", False):
         logger.info(f"init from ckpt: {args.init_from_ckpt}")
         module_state_dict=load_ckpt(args["init_from_ckpt"])
@@ -177,24 +177,24 @@ def main(args):
                     param.copy_(module_state_dict['detector'][name])
                 else:
                     logger.warning(f"Shape mismatch for {name}, skipping this parameter.")
-                    
+
     if getattr(args, "continue_from_ckpt", False):
         logger.info(f"continue from ckpt: {args['continue_from_ckpt']}")
         module_state_dict=load_ckpt(args["continue_from_ckpt"])
         embedder.load_state_dict(module_state_dict['embedder'],strict=False)
         detector.load_state_dict(module_state_dict['detector'],strict=False)
-        # discriminator.load_state_dict(module_state_dict['discriminator'],strict=False)
+
         en_de_optim.load_state_dict(module_state_dict['en_de_optim'])
-        # d_op.load_state_dict(module_state_dict['d_optim'])
-        # lr_sched.load_state_dict(module_state_dict['lr_sched'])
-        # lr_sched_d.load_state_dict(module_state_dict['lr_sched_d'])
+
+
+
         global_step=module_state_dict['global_step']
         init_epoch=module_state_dict['epoch']+1
 
-    # -------------- Loss 
+
     loss = Loss(args).to(device)
 
-    # ---------------- train
+
     logger.info("Begin Training")
 
 
@@ -204,13 +204,13 @@ def main(args):
 
     msg_generator=MsgGenerator(args.wm_msg)
 
-    # eval(args, embedder, detector, val_audios_loader, loss, logger, ep=init_epoch, global_step=global_step)
+
 
     for ep in range(init_epoch, args.iter.max_epoch):
         embedder.train()
         detector.train()
         discriminator.train()
-        
+
         logger.info('Epoch {}/{}'.format(ep, args.iter.max_epoch))
         train_audio_loader = DataLoader(train_audios, batch_size=batch_size, shuffle=True)
         for step, sample in enumerate(train_audio_loader):
@@ -218,7 +218,7 @@ def main(args):
             if step >=args.iter.steps_per_epoch: break
 
             global_step += 1
-            
+
             x = sample["matrix"].to(device)
             B,C,T=x.shape
 
@@ -233,9 +233,9 @@ def main(args):
             x_wm = x+wm
             x_masked = x
             x_wm_masked = x_wm
-            # if mask is not None:
-            #     x_masked = torch.masked_select(x, mask == 1).reshape(x.shape[0], 1, -1)
-            #     x_wm_masked = torch.masked_select(x_wm, mask == 1).reshape(x.shape[0], 1, -1)
+
+
+
 
             decoded_identity_det, decoded_identity_rec = detector(x_wm)
             decoded_identity_original_det, decoded_identity_original_rec = detector(x)
@@ -244,30 +244,30 @@ def main(args):
             decoded_identity_rec_temp=decoded_identity_rec[:,msg_fix_length:msg_fix_length+msg_temp_length,:]
             decoded_identity_rec_val=decoded_identity_rec[:,msg_fix_length+msg_temp_length:,:]
 
-            # for easy training
-            # n=int(global_step/200)
-            # decoded_identity_rec_temp=decoded_identity_rec_temp[:,:4+n,:]
-            # msg_temp=msg_temp[:,:4+n,:]
 
-            # percep loss
+
+
+
+
+
             wav_loss = loss.wav_loss(x_masked, x_wm_masked)
             loudness_loss = loss.loud_loss(x_masked, x_wm_masked)
             mel_loss = loss.mel_loss(x_masked, x_wm_masked)
             wav2vec_loss = loss.wav2vec_loss(x_masked,x_wm_masked)
 
-            # watermark loss
+
             wm_det_identity_loss = loss.wm_det_loss(decoded_identity_det,decoded_identity_original_det,mask)
             wm_rec_identity_loss_fix = loss.wm_rec_loss(decoded_identity_rec_fix,mask,msg_fix)
             wm_rec_identity_loss_temp = loss.wm_rec_loss(decoded_identity_rec_temp,mask,msg_temp)
             wm_rec_identity_loss_val = loss.wm_rec_loss(decoded_identity_rec_val,mask,msg_val)
             wm_rec_identity_loss = wm_rec_identity_loss_fix + wm_rec_identity_loss_temp + wm_rec_identity_loss_val
-            
+
             wm_boundary_rec_loss=loss.boundary_loss_rec(decoded_identity_rec,msg_total,mask)
             wm_boundary_det_loss=loss.boundary_loss_det(decoded_identity_det,mask)
 
             snr = (-snr_fn(torch.masked_select(x_wm, mask == 1).reshape(B,C,-1),torch.masked_select(x, mask == 1).reshape(B,C,-1)))
             pesq=pesq_fn(16000,torch.masked_select(x, mask == 1).reshape(-1).detach().cpu().numpy()[:48000],torch.masked_select(x_wm, mask == 1).reshape(-1).detach().cpu().numpy()[:48000],on_error=PesqError.RETURN_VALUES)
-            
+
             wm_identity_det_acc = compute_accuracy(decoded_identity_det, decoded_identity_original_det,mask).item()
             wm_identity_rec_acc = compute_bit_acc(decoded_identity_rec, msg_total,mask).item()
             wm_identity_rec_acc_fix = compute_bit_acc(decoded_identity_rec_fix, msg_fix,mask).item()
@@ -310,21 +310,21 @@ def main(args):
                 decoded_aug_rec_temp=decoded_aug_rec[:,msg_fix_length:msg_fix_length+msg_temp_length,:]
                 decoded_aug_rec_val=decoded_aug_rec[:,msg_fix_length+msg_temp_length:,:]
 
-                # Adjust message size to match augmented audio length
+
                 T_aug = mask_aug_wm.shape[-1]
                 T_orig = msg_total.shape[-1]
                 if T_aug <= T_orig:
-                    # Augmentation shortened the audio, truncate message
+
                     msg_total_aug = msg_total[:, :, :T_aug]
                 else:
-                    # Augmentation lengthened the audio, pad message with zeros
+
                     pad_size = T_aug - T_orig
                     msg_total_aug = torch.nn.functional.pad(msg_total, (0, pad_size), mode='constant', value=0)
                 msg_fix_aug = msg_total_aug[:, :msg_fix_length, :]
                 msg_temp_aug = msg_total_aug[:, msg_fix_length:msg_fix_length+msg_temp_length, :]
                 msg_val_aug = msg_total_aug[:, msg_fix_length+msg_temp_length:, :]
 
-                # wm loss
+
                 wm_det_aug_loss += loss.wm_det_loss(decoded_aug_det,decoded_aug_original_det,mask_aug_wm)
                 wm_rec_aug_loss_fix += loss.wm_rec_loss(decoded_aug_rec_fix,mask_aug_wm,msg_fix_aug)
                 wm_rec_aug_loss_temp += loss.wm_rec_loss(decoded_aug_rec_temp,mask_aug_wm,msg_temp_aug)
@@ -343,7 +343,7 @@ def main(args):
                 t_f+=f'{augmentation_name} '
                 N_augs+=1
 
-            # logger.info(t_f)
+
             if N_augs!=0:
 
                 wm_det_aug_loss /= N_augs
@@ -358,20 +358,20 @@ def main(args):
                 wm_aug_rec_acc_temp /= N_augs
                 wm_aug_rec_acc_val /= N_augs
 
-            sum_loss =  lambda_wav * wav_loss + \
-                        lambda_wav2vec * wav2vec_loss + \
-                        lambda_msmel * mel_loss + \
-                        lambda_loud * loudness_loss + \
-                        lambda_wm_det * (wm_det_identity_loss + wm_det_aug_loss) + \
-                        lambda_wm_rec_fix * (wm_rec_identity_loss_fix + wm_rec_aug_loss_fix) + \
-                        lambda_wm_rec_temp * (wm_rec_identity_loss_temp + wm_rec_aug_loss_temp) + \
-                        lambda_wm_rec_val * (wm_rec_identity_loss_val + wm_rec_aug_loss_val) + \
+            sum_loss =  lambda_wav * wav_loss +\
+                        lambda_wav2vec * wav2vec_loss +\
+                        lambda_msmel * mel_loss +\
+                        lambda_loud * loudness_loss +\
+                        lambda_wm_det * (wm_det_identity_loss + wm_det_aug_loss) +\
+                        lambda_wm_rec_fix * (wm_rec_identity_loss_fix + wm_rec_aug_loss_fix) +\
+                        lambda_wm_rec_temp * (wm_rec_identity_loss_temp + wm_rec_aug_loss_temp) +\
+                        lambda_wm_rec_val * (wm_rec_identity_loss_val + wm_rec_aug_loss_val) +\
                         lambda_boundary_rec * (wm_boundary_rec_loss + wm_boundary_det_loss)
-                        
-            
+
+
             adv_d_loss = adv_g_loss = adv_g_map_loss = torch.tensor(0.0).to(device)
             if global_step>= args.adv.adv_starts_from:
-                if step%args.adv.update_d_every==0: #控制disc 优化次数
+                if step%args.adv.update_d_every==0:
                     if lambda_adv_d>0:
                         adv_d_loss = adversary.train_adv(real=x, fake=x_wm.detach(), lambda_loss_d=lambda_adv_d)
                     if lambda_adv_g>0 or lambda_adv_g_map>0:
@@ -382,30 +382,30 @@ def main(args):
 
             torch.nn.utils.clip_grad_norm_(embedder.parameters(), max_norm=5)
             torch.nn.utils.clip_grad_norm_(detector.parameters(), max_norm=5)
-            
+
             en_de_optim.step()
             en_de_optim.zero_grad()
-            # lr_sched.step()
-  
+
+
             logger.info(  f"{global_step}/{args.iter.steps_per_epoch}({ep})[{N_augs}]"+
                     f"\n[me] " +
                     f"id_det_acc:{wm_identity_det_acc:.3f}, " +
                     f"id_rec_acc:{wm_identity_rec_acc:.3f}/{wm_identity_rec_acc_fix:.3f}/{wm_identity_rec_acc_temp:.3f}/{wm_identity_rec_acc_val:.3f}, " +
-                    f"aug_det_acc:{wm_aug_det_acc:.3f}, " + 
+                    f"aug_det_acc:{wm_aug_det_acc:.3f}, " +
                     f"aug_rec_acc:{wm_aug_rec_acc:.3f}/{wm_aug_rec_acc_fix:.3f}/{wm_aug_rec_acc_temp:.3f}/{wm_aug_rec_acc_val:.3f}, " +
                     f"\n[pe] " +
-                    f"snr:{snr:.3f}, " + 
+                    f"snr:{snr:.3f}, " +
                     f"pesq:{pesq:.3f}, " +
                     f"l_wav2vec: {wav2vec_loss:.6f}," +
-                    f"l_wav:{wav_loss:.6f}, " + 
+                    f"l_wav:{wav_loss:.6f}, " +
                     f"l_msmel:{mel_loss:.5f}, " +
-                    f"l_loud: {loudness_loss:.6f}, " + 
-                    f"l_d:{adv_d_loss:.5f}, " + 
+                    f"l_loud: {loudness_loss:.6f}, " +
+                    f"l_d:{adv_d_loss:.5f}, " +
                     f"l_g:{adv_g_loss:.5f},"+
                     f"l_gmap:{adv_g_map_loss:.5f}" +
                     f"\n[wm] " +
-                    f"l_id_det:{wm_det_identity_loss:.3f}, " + 
-                    f"l_aug_det:{wm_det_aug_loss:.3f}, " + 
+                    f"l_id_det:{wm_det_identity_loss:.3f}, " +
+                    f"l_aug_det:{wm_det_aug_loss:.3f}, " +
                     f"l_id_rec:{wm_rec_identity_loss:.3f}/{wm_rec_identity_loss_fix.item():.3f}/{wm_rec_identity_loss_temp.item():.3f}/{wm_rec_identity_loss_val.item():.3f}," +
                     f"l_aug_rec:{wm_rec_aug_loss:.3f}/{wm_rec_aug_loss_fix.item():.3f}/{wm_rec_aug_loss_temp.item():.3f}/{wm_rec_aug_loss_val.item():.3f}," +
                     f"l_wm_boundary_loss:{wm_boundary_det_loss:.6f}/{wm_boundary_rec_loss:6f}, " +
@@ -426,7 +426,7 @@ def main(args):
 
             if global_step%args.iter.wandb_log_by_step==0:
                 wandb.log({
-                    f"train/pesq": pesq, 
+                    f"train/pesq": pesq,
                     f"train/snr": snr,
                     f"train/wm_identity_det_acc": wm_identity_det_acc,
                     f"train/wm_identity_rec_acc": wm_identity_rec_acc,
@@ -458,26 +458,26 @@ def main(args):
                     f"train/adv_g_loss": adv_g_loss.item(),
                     f"train/adv_g_map_loss": adv_g_map_loss.item()
                 }, step=global_step)
-                
+
         if ep % args.iter.save_skpt_by_epoch == 0:
 
             module_state_dict={
                 f"embedder": embedder.state_dict(),
                 f"detector": detector.state_dict(),
-                # f"discriminator": discriminator.state_dict(),
+
                 f"en_de_optim": en_de_optim.state_dict(),
-                # f"d_optim":d_op.state_dict(),
-                # f"lr_sched":lr_sched.state_dict(),
-                # f"lr_sched_d":lr_sched_d.state_dict(),
+
+
+
                 f"global_step":global_step,
                 f"epoch":ep
             }
 
             save_ckpt(ckpt_dir=args.path.ckpt, base_name=args.experiment_name, module_state_dict=module_state_dict, epoch=ep)
-            shutil.copyfile(os.path.realpath(__file__), os.path.join(args.path.ckpt, os.path.basename(os.path.realpath(__file__)))) # save training scripts
+            shutil.copyfile(os.path.realpath(__file__), os.path.join(args.path.ckpt, os.path.basename(os.path.realpath(__file__))))
 
-        # if ep % args.iter.eval_by_epoch == 0:
-        #     eval(args, embedder, detector, val_audios_loader, loss, logger, ep, global_step=global_step)
+
+
 
 
 
@@ -511,7 +511,7 @@ def eval(args, embedder, detector, val_audios_loader, loss, logger, ep, global_s
         wm_identity_rec_acc_temp=0.0
         wm_identity_rec_acc_val=0.0
         pesq=0.0
-                
+
         snr=0.0
 
         for i, sample in enumerate(val_audios_loader):
@@ -523,19 +523,19 @@ def eval(args, embedder, detector, val_audios_loader, loss, logger, ep, global_s
 
             msg_total, msg_fix, msg_temp, msg_val = msg_generator.msg_generate(x)
 
-            # wm = embedder(model_config=args.model, klass=args.embedder, msg_fix_nbits=msg_fix_length, msg_temp_nbits=msg_temp_length, msg_val_nbits=msg_val_length)
+
 
             wm = embedder(x=x, sample_rate=16_000, message=msg_fix, temp_message=msg_total)
 
             x, wm, mask, msg_total= crop(x, wm, args.crop, msg_total, clip=global_step>=args.crop.clip_starts_from)
-   
-            # mask=None
+
+
             x_wm = x+wm
             x_wm = torch.clip(x_wm, -1, 1)
 
             decoded_identity_det, decoded_identity_rec  = detector(x_wm)
             decoded_identity_original_det, decoded_identity_original_rec = detector(x.detach())
-            
+
             decoded_identity_rec_fix=decoded_identity_rec[:,:msg_fix_length,:]
             decoded_identity_rec_temp=decoded_identity_rec[:,msg_fix_length:msg_fix_length+msg_temp_length,:]
             decoded_identity_rec_val=decoded_identity_rec[:,msg_fix_length+msg_temp_length:,:]
@@ -553,13 +553,13 @@ def eval(args, embedder, detector, val_audios_loader, loss, logger, ep, global_s
                 x_wm_masked = torch.masked_select(x_wm, mask == 1).reshape(x.shape[0], 1, -1)
 
 
-            # percep loss
+
             wav_loss = loss.wav_loss(x_masked, x_wm_masked)
             loudness_loss = loss.loud_loss(x_masked, x_wm_masked)
             mel_loss = loss.mel_loss(x_masked, x_wm_masked)
             wav2vec_loss = loss.wav2vec_loss(x_masked,x_wm_masked)
 
-            # watermark loss
+
             wm_det_identity_loss += loss.wm_det_loss(decoded_identity_det,decoded_identity_original_det,mask)
             wm_rec_identity_loss_fix += loss.wm_rec_loss(decoded_identity_rec_fix,mask,msg_fix)
             wm_rec_identity_loss_temp += loss.wm_rec_loss(decoded_identity_rec_temp,mask,msg_temp)
@@ -579,7 +579,7 @@ def eval(args, embedder, detector, val_audios_loader, loss, logger, ep, global_s
                 pesq+=pesq_fn(16000,torch.masked_select(x, mask == 1).reshape(-1).detach().cpu().numpy()[:48000],torch.masked_select(x_wm, mask == 1).reshape(-1).detach().cpu().numpy()[:48000])
             except:
                 pesq+=0
-            
+
 
             snr += (-snr_fn(torch.masked_select(x_wm, mask == 1).reshape(B,C,-1),torch.masked_select(x, mask == 1).reshape(B,C,-1)))
 
@@ -600,12 +600,12 @@ def eval(args, embedder, detector, val_audios_loader, loss, logger, ep, global_s
         wm_identity_rec_acc_fix /= count
         wm_identity_rec_acc_temp /= count
         wm_identity_rec_acc_val /= count
-    
+
         snr /= count
         pesq /= count
 
         wandb.log({
-            f"eval/pesq": pesq, 
+            f"eval/pesq": pesq,
             f"eval/snr": snr,
             f"eval/wm_identity_det_acc": wm_identity_det_acc,
             f"eval/wm_identity_rec_acc": wm_identity_rec_acc,
@@ -625,24 +625,24 @@ def eval(args, embedder, detector, val_audios_loader, loss, logger, ep, global_s
             f"eval/wm_rec_identity_loss_val": wm_rec_identity_loss_val.item()
         }, step=global_step)
 
-        logger.info(f"==========eval epoch {ep}==========" +  
+        logger.info(f"==========eval epoch {ep}==========" +
                 f"\n[me] " +
                 f"id_det_acc:{wm_identity_det_acc:.3f}, " +
                 f"id_rec_acc:{wm_identity_rec_acc:.3f}/{wm_identity_rec_acc_fix:.3f}/{wm_identity_rec_acc_temp:.3f}/{wm_identity_rec_acc_val:.3f}, " +
                 f"\n[pe] " +
-                f"snr:{snr:.3f}, " + 
+                f"snr:{snr:.3f}, " +
                 f"pesq:{pesq:.3f}, " +
                 f"l_wav2vec: {wav2vec_loss:.6f}," +
-                f"l_wav:{wav_loss:.6f}, " + 
+                f"l_wav:{wav_loss:.6f}, " +
                 f"l_msmel:{mel_loss:.5f}, " +
-                f"l_loud: {loudness_loss:.6f}, " + 
+                f"l_loud: {loudness_loss:.6f}, " +
                 f"\n[wm] " +
-                f"l_id_det:{wm_det_identity_loss:.3f}, " + 
+                f"l_id_det:{wm_det_identity_loss:.3f}, " +
                 f"l_id_rec:{wm_rec_identity_loss:.3f}/{wm_rec_identity_loss_fix.item():.3f}/{wm_rec_identity_loss_temp.item():.3f}/{wm_rec_identity_loss_val.item():.3f}," +
                 f"l_wm_boundary_loss:{wm_boundary_det_loss:.6f}/{wm_boundary_rec_loss:.6f}"
                 )
 
-# 创建水印，选择一个分布来生成水印
+
 def generate_watermark(batch_size, length, micro, sigma):
     sigmoid = torch.nn.Sigmoid()
     eye_matrix = np.eye(length)
@@ -660,38 +660,32 @@ def compute_accuracy(positive, negative, mask=None):
         return torch.tensor(0.0)
 
     if mask is not None:
-        # cut last dim of positive to keep only where mask is 1
-        # new_shape = [*positive.shape[:-1], -1]  # b nbits t -> b nbits -1
-        # positive = torch.masked_select(positive, mask == 1).reshape(new_shape)
+
+
+
         acc = ((positive>0) == (mask==1)).float().mean()
 
         return acc
     else:
         N = (positive[:, 0, :] > 0).float().sum()/mask.sum() + (negative[:, 0, :] < 0).float().mean()
-        
+
         acc = N / 2
 
         return acc
 
 
 def compute_bit_acc(decoded, message, mask=None):
-    """Compute bit accuracy.
-    Args:
-        positive: detector outputs [bsz, 2+nbits, time_steps]
-        original: original message (0 or 1) [bsz, nbits]
-        mask: mask of the watermark [bsz, 1, time_steps]
-    """
     if decoded.size(1)==0:
         return torch.tensor(0.0)
 
     if mask is not None:
-        # cut last dim of positive to keep only where mask is 1
-        new_shape = [*decoded.shape[:-1], -1]  # b nbits t -> b nbits -1
+
+        new_shape = [*decoded.shape[:-1], -1]
         decoded = torch.masked_select(decoded, mask == 1).reshape(new_shape)
         message = torch.masked_select(message, mask == 1).reshape(new_shape)
-    # average decision over time, then threshold
-    # decoded = decoded.mean(dim=-1) > 0  # b nbits
-    decoded = decoded > 0  # b nbits
+
+
+    decoded = decoded > 0
     res = (decoded == message).float().mean()
     return res
 
@@ -711,19 +705,19 @@ def run(args):
             job_type="training",
             config=wandb_config,
             reinit=True)
-    
+
 
     args_save_path = os.path.join(args.path.ckpt, "hydra_config.yaml")
-    # 将配置保存为YAML文件
+
     for p in args["path"].values():
          os.makedirs(p, exist_ok=True)
 
     with open(args_save_path, 'w') as file:
-        # 使用OmegaConf.to_yaml方法将配置转换为YAML格式
-        file.write(OmegaConf.to_yaml(args))
-    
 
-    # seet seeds
+        file.write(OmegaConf.to_yaml(args))
+
+
+
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -735,5 +729,3 @@ def run(args):
 
 if __name__ == "__main__":
     run()
-
-

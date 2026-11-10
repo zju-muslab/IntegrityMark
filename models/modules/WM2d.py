@@ -14,25 +14,25 @@ class Detector2d(nn.Module):
 
         self.mel_transform = TacotronSTFT(filter_length=n_fft, hop_length=hop_length, win_length=win_length)
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        # self.vocoder = get_vocoder(self.device)
-        # self.vocoder_step = model_config["structure"]["vocoder_step"]
+
+
 
         win_dim = int((n_fft / 2) + 1)
         self.block = block
         self.EX = Watermark_Extracter(input_channel = 1, latent_dim = latent_dim, n_layers = nlayers_decoder)
-        
+
         self.stft = fixed_STFT(n_fft, hop_length, win_length)
-        
+
         self.msg_Decoder = Msg_after_Process(win_dim, msg_length)
         self.last_layer = nn.Linear(513, msg_length)
-    
+
     def forward(self, y, source_audio, global_step, attack_type):
         spect, phase = self.stft.transform(y)
         extracted_wm = self.EX(spect.unsqueeze(1)).squeeze(1)
-        
+
         msg = torch.mean(extracted_wm, dim=2, keepdim=True).transpose(1,2)
         msg = self.msg_Decoder(msg)
-        
+
         return msg
 
 
@@ -44,11 +44,11 @@ class Detector2d(nn.Module):
         extracted_wm_identity = self.EX(spect_identity.unsqueeze(1)).squeeze(1)
         print(y.shape,extracted_wm_identity.shape)
         msg_identity = torch.mean(extracted_wm_identity,dim=2, keepdim=True).transpose(1,2)
-        
-        # 没有传输损失的msg
+
+
         msg = self.msg_Decoder(msg_identity)
         return msg
-    
+
     def detect_temp(self, y):
         y_gap = torch.zeros_like(y, device=self.device, requires_grad=True).to(y.device)
         y= y + y_gap
@@ -60,7 +60,7 @@ class Detector2d(nn.Module):
 
         msg_identity = self.last_layer(extracted_wm_identity)
         msg_identity = msg_identity.transpose(1,2)
-        # print(msg_identity.shape)
+
 
         return msg_identity[:,:1,:], msg_identity[:,1:,:]
 
@@ -70,11 +70,11 @@ class Watermark_Embedder(nn.Module):
         wm_embedder = [ReluSpect(c_in = input_channel, c_out = latent_dim, kernel_size = 3, stride = 1, padding = 1)]
         for i in range(n_layers - 2):
             wm_embedder.append(ReluSpect(c_in = latent_dim, c_out = latent_dim, padding = i + 1, kernel_size = 2 * i + 3, stride = 1))
-        
+
         wm_embedder.append(ReluSpect(c_in = latent_dim, c_out = 1, kernel_size = 3, stride = 1, padding = 1))
 
         self.main = nn.Sequential(*wm_embedder)
-    
+
     def forward(self, x):
         return self.main(x)
 
@@ -87,7 +87,7 @@ class Watermark_Extracter(nn.Module):
         wm_extracter.append(ReluSpect(c_in = latent_dim, c_out = 1, padding = 1, kernel_size = 3, stride = 1))
 
         self.main = nn.Sequential(*wm_extracter)
-    
+
     def forward(self, x):
         return self.main(x)
 
@@ -114,7 +114,7 @@ class Msg_Process(nn.Module):
         if activation is not None:
             self.linear_layer.add_module("activ", activation)
         self.dropout = dropout
-        
+
     def forward(self, msg):
         x = self.linear_layer(msg)
         if self.dropout is not None:
@@ -143,16 +143,9 @@ class Msg_after_Process(nn.Module):
         if activation is not None:
             self.linear_layer.add_module("activ", activation)
         self.dropout = dropout
-        
+
     def forward(self, msg):
         x = self.linear_layer(msg)
         if self.dropout is not None:
             x = F.dropout(x, self.dropout, self.training)
         return x
-
-
-
-
-
-
-        

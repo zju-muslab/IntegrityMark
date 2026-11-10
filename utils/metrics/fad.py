@@ -3,7 +3,6 @@
 #
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
-
 import logging
 from pathlib import Path
 import os
@@ -27,121 +26,6 @@ VGGISH_CHANNELS = 1
 
 
 class FrechetAudioDistanceMetric(torchmetrics.Metric):
-    """Fréchet Audio Distance computation based on official TensorFlow implementation from Google Research.
-
-    From: D.C. Dowson & B.V. Landau The Fréchet distance between
-    multivariate normal distributions
-    https://doi.org/10.1016/0047-259X(82)90077-X
-    The Fréchet distance between two multivariate gaussians,
-    `X ~ N(mu_x, sigma_x)` and `Y ~ N(mu_y, sigma_y)`, is `d^2`.
-    d^2 = (mu_x - mu_y)^2 + Tr(sigma_x + sigma_y - 2 * sqrt(sigma_x*sigma_y))
-        = (mu_x - mu_y)^2 + Tr(sigma_x) + Tr(sigma_y)
-                        - 2 * Tr(sqrt(sigma_x*sigma_y)))
-
-    To use this FAD computation metric, you need to have the proper Frechet Audio Distance tool setup
-    from: https://github.com/google-research/google-research/tree/master/frechet_audio_distance
-    We provide the below instructions as reference but we do not guarantee for further support
-    in frechet_audio_distance installation. This was tested with python 3.10, cuda 11.8, tensorflow 2.12.0.
-
-        We recommend installing the frechet_audio_distance library in a dedicated env (e.g. conda).
-
-        1. Get the code and models following the repository instructions. We used the steps below:
-                git clone git@github.com:google-research/google-research.git
-                git clone git@github.com:tensorflow/models.git
-                mkdir google-research/tensorflow_models
-                touch google-research/tensorflow_models/__init__.py
-                cp -r models/research/audioset google-research/tensorflow_models/
-                touch google-research/tensorflow_models/audioset/__init__.py
-                echo "from .vggish import mel_features, vggish_params, vggish_slim" > \
-                    google-research/tensorflow_models/audioset/__init__.py
-                # we can now remove the tensorflow models repository
-                # rm -r models
-                cd google-research
-           Follow the instructions to download the vggish checkpoint. AudioCraft base configuration
-           assumes it is placed in the AudioCraft reference dir.
-
-           Note that we operate the following changes for the code to work with TensorFlow 2.X and python 3:
-           - Update xrange for range in:
-             https://github.com/google-research/google-research/blob/master/frechet_audio_distance/audioset_model.py
-           - Update `tf_record = tf.python_io.tf_record_iterator(filename).next()` to
-             `tf_record = tf.python_io.tf_record_iterator(filename).__next__()` in
-              https://github.com/google-research/google-research/blob/master/frechet_audio_distance/fad_utils.py
-           - Update `import vggish_params as params` to `from . import vggish_params as params` in:
-             https://github.com/tensorflow/models/blob/master/research/audioset/vggish/vggish_slim.py
-           - Add flag to provide a given batch size for running the AudioSet model in:
-             https://github.com/google-research/google-research/blob/master/frechet_audio_distance/create_embeddings_main.py
-             ```
-             flags.DEFINE_integer('batch_size', 64,
-                                  'Number of samples in the batch for AudioSet model.')
-             ```
-             Ensure you pass the flag to the create_embeddings_beam.create_pipeline function, adding:
-             `batch_size=FLAGS.batch_size` to the provided parameters.
-
-        2. Follow instructions for the library installation and a valid TensorFlow installation
-           ```
-           # e.g. instructions from: https://www.tensorflow.org/install/pip
-           conda install -c conda-forge cudatoolkit=11.8.0
-           python3 -m pip install nvidia-cudnn-cu11==8.6.0.163 tensorflow==2.12.*
-           mkdir -p $CONDA_PREFIX/etc/conda/activate.d
-           echo 'CUDNN_PATH=$(dirname $(python -c "import nvidia.cudnn;print(nvidia.cudnn.__file__)"))' \
-             >> $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
-           echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/:$CUDNN_PATH/lib' \
-             >> $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
-           source $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
-           # Verify install: on a machine with GPU device
-           python3 -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
-           ```
-
-           Now install frechet_audio_distance required dependencies:
-           ```
-           # We assume we already have TensorFlow installed from the above steps
-           pip install apache-beam numpy scipy tf_slim
-           ```
-
-           Finally, follow remaining library instructions to ensure you have a working frechet_audio_distance setup
-           (you may want to specify --model_ckpt flag pointing to the model's path).
-
-        3. AudioCraft's FrechetAudioDistanceMetric requires 2 environment variables pointing to the python executable
-           and Tensorflow library path from the above installation steps:
-            export TF_PYTHON_EXE="<PATH_TO_THE_ENV_PYTHON_BINARY>"
-            export TF_LIBRARY_PATH="<PATH_TO_THE_ENV_CUDNN_LIBRARY>"
-
-            e.g. assuming we have installed everything in a dedicated conda env
-            with python 3.10 that is currently active:
-            export TF_PYTHON_EXE="$CONDA_PREFIX/bin/python"
-            export TF_LIBRARY_PATH="$CONDA_PREFIX/lib/python3.10/site-packages/nvidia/cudnn/lib"
-
-            Finally you may want to export the following variable:
-            export TF_FORCE_GPU_ALLOW_GROWTH=true
-            See: https://www.tensorflow.org/guide/gpu#limiting_gpu_memory_growth
-
-            You can save those environment variables in your training conda env, when currently active:
-            `$CONDA_PREFIX/etc/conda/activate.d/env_vars.sh`
-            e.g. assuming the env with TensorFlow and frechet_audio_distance install is named ac_eval,
-            and the training conda env is named audiocraft:
-            ```
-            # activate training env
-            conda activate audiocraft
-            # get path to all envs
-            CONDA_ENV_DIR=$(dirname $CONDA_PREFIX)
-            # export pointers to evaluation env for using TensorFlow in FrechetAudioDistanceMetric
-            touch $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
-            echo 'export TF_PYTHON_EXE="$CONDA_ENV_DIR/ac_eval/bin/python"' >> \
-                $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
-            echo 'export TF_LIBRARY_PATH="$CONDA_ENV_DIR/ac_eval/lib/python3.10/site-packages/nvidia/cudnn/lib"' >> \
-                $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
-            # optionally:
-            echo 'export TF_FORCE_GPU_ALLOW_GROWTH=true' >> $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
-            # you may need to reactivate the audiocraft env for this to take effect
-            ```
-
-    Args:
-        bin (Path or str): Path to installed frechet audio distance code.
-        model_path (Path or str): Path to Tensorflow checkpoint for the model
-            used to compute statistics over the embedding beams.
-        format (str): Audio format used to save files.
-        log_folder (Path or str, optional): Path where to write process logs.
-    """
     def __init__(self, bin: tp.Union[Path, str], model_path: tp.Union[Path, str],
                  format: str = "wav", batch_size: tp.Optional[int] = None,
                  log_folder: tp.Optional[tp.Union[Path, str]] = None):
@@ -165,7 +49,6 @@ class FrechetAudioDistanceMetric(torchmetrics.Metric):
         self.add_state("total_files", default=torch.tensor(0.), dist_reduce_fx="sum")
 
     def reset(self, log_folder: tp.Optional[tp.Union[Path, str]] = None):
-        """Reset torchmetrics.Metrics state."""
         log_folder = Path(log_folder or tempfile.mkdtemp())
         self.tmp_dir = log_folder / 'fad'
         self.tmp_dir.mkdir(exist_ok=True)
@@ -182,13 +65,12 @@ class FrechetAudioDistanceMetric(torchmetrics.Metric):
     def update(self, preds: torch.Tensor, targets: torch.Tensor,
                sizes: torch.Tensor, sample_rates: torch.Tensor,
                stems: tp.Optional[tp.List[str]] = None):
-        """Update torchmetrics.Metrics by saving the audio and updating the manifest file."""
         assert preds.shape == targets.shape, f"preds={preds.shape} != targets={targets.shape}"
         num_samples = preds.shape[0]
         assert num_samples == sizes.size(0) and num_samples == sample_rates.size(0)
         assert stems is None or num_samples == len(set(stems))
         for i in range(num_samples):
-            self.total_files += 1  # type: ignore
+            self.total_files += 1
             self.counter += 1
             wav_len = int(sizes[i].item())
             sample_rate = int(sample_rates[i].item())
@@ -197,7 +79,7 @@ class FrechetAudioDistanceMetric(torchmetrics.Metric):
             pred_wav = pred_wav[..., :wav_len]
             target_wav = target_wav[..., :wav_len]
             stem_name = stems[i] if stems is not None else f'sample_{self.counter}_{flashy.distrib.rank()}'
-            # dump audio files
+
             try:
                 pred_wav = convert_audio(
                     pred_wav.unsqueeze(0), from_rate=sample_rate,
@@ -208,8 +90,8 @@ class FrechetAudioDistanceMetric(torchmetrics.Metric):
             except Exception as e:
                 logger.error(f"Exception occured when saving tests files for FAD computation: {repr(e)} - {e}")
             try:
-                # for the ground truth audio, we enforce the 'peak' strategy to avoid modifying
-                # the original audio when writing it
+
+
                 target_wav = convert_audio(
                     target_wav.unsqueeze(0), from_rate=sample_rate,
                     to_rate=self.model_sample_rate, to_channels=1).squeeze(0)
@@ -274,7 +156,7 @@ class FrechetAudioDistanceMetric(torchmetrics.Metric):
             )
             raise RuntimeError("Error while executing FAD computation from stats")
         try:
-            # result is "FAD: (d+).(d+)" hence we remove the prefix with (d+) being one digit or more
+
             fad_score = float(result.stdout[4:])
             return fad_score
         except Exception as e:
@@ -311,7 +193,6 @@ class FrechetAudioDistanceMetric(torchmetrics.Metric):
 
     @flashy.distrib.rank_zero_only
     def _local_compute_frechet_audio_distance(self):
-        """Compute Frechet Audio Distance score calling TensorFlow API."""
         num_of_gpus = torch.cuda.device_count() if torch.cuda.is_available() else 0
         if num_of_gpus > 1:
             self._parallel_create_embedding_beams(num_of_gpus)
@@ -321,8 +202,7 @@ class FrechetAudioDistanceMetric(torchmetrics.Metric):
         return fad_score
 
     def compute(self) -> float:
-        """Compute metrics."""
-        assert self.total_files.item() > 0, "No files dumped for FAD computation!"  # type: ignore
+        assert self.total_files.item() > 0, "No files dumped for FAD computation!"
         fad_score = self._local_compute_frechet_audio_distance()
         logger.warning(f"FAD score = {fad_score}")
         fad_score = flashy.distrib.broadcast_object(fad_score, src=0)

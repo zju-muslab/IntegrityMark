@@ -3,7 +3,6 @@
 #
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
-
 import csv
 import json
 import logging
@@ -20,36 +19,6 @@ logger = logging.getLogger(__name__)
 
 
 class ViSQOL:
-    """ViSQOL wrapper to run ViSQOL from Python using a pre-installed binary.
-
-    To learn more about ViSQOL and how to build ViSQOL binary using bazel, please refer to the
-    instructions available in the open source repository: https://github.com/google/visqol
-
-    ViSQOL is capable of running in two modes:
-
-    Audio Mode:
-        When running in audio mode, input signals must have a 48kHz sample rate. Input should be resampled to 48kHz.
-        Input signals can be multi-channel, but they will be down-mixed to mono for performing the comparison.
-        Audio mode uses support vector regression, with the maximum range at ~4.75.
-
-    Speech Mode:
-        When running in speech mode, ViSQOL uses a wideband model. It therefore expects input sample rates of 16kHz.
-            Input should be resampled to 16kHz.
-        As part of the speech mode processing, a root mean square implementation for voice activity detection
-            is performed on the reference signal to determine what parts of the signal have voice activity and
-            should therefore be included in the comparison. The signal is normalized before performing the voice
-            activity detection.
-        Input signals can be multi-channel, but they will be down-mixed to mono for performing the comparison.
-        Speech mode is scaled to have a maximum MOS of 5.0 to match previous version behavior.
-
-    For more details, check the guidelines: https://github.com/google/visqol#general-guidelines-for-input
-
-    Args:
-        visqol_bin (str): Path to the ViSQOL binary.
-        mode (str): ViSQOL computation mode, expecting "audio" or "speech".
-        model (str): Name of the model to use for similarity to quality model.
-        debug (bool): Whether to also get debug metrics from ViSQOL or not.
-    """
     SAMPLE_RATES_MODES = {"audio": 48_000, "speech": 16_000}
     ALLOWED_SAMPLE_RATES = frozenset(SAMPLE_RATES_MODES.values())
 
@@ -61,11 +30,11 @@ class ViSQOL:
         self.target_sr = self._get_target_sr(self.visqol_mode)
         self.model = model
         self.debug = debug
-        assert Path(self.visqol_model).exists(), \
+        assert Path(self.visqol_model).exists(),\
             f"Could not find the specified model in ViSQOL install: {self.visqol_model}"
 
     def _get_target_sr(self, mode: str) -> int:
-        # returns target sampling rate for the corresponding ViSQOL mode.
+
         if mode not in ViSQOL.SAMPLE_RATES_MODES:
             raise ValueError(
                 f"Unsupported mode! Allowed are: {', '.join(ViSQOL.SAMPLE_RATES_MODES.keys())}"
@@ -75,13 +44,13 @@ class ViSQOL:
     def _prepare_files(
         self, ref_sig: torch.Tensor, deg_sig: torch.Tensor, sr: int, target_sr: int, pad_with_silence: bool = False
     ):
-        # prepare files for ViSQOL evaluation.
+
         assert target_sr in ViSQOL.ALLOWED_SAMPLE_RATES
         assert len(ref_sig) == len(deg_sig), (
             "Expects same number of ref and degraded inputs",
             f" but ref len {len(ref_sig)} != deg len {len(deg_sig)}"
         )
-        # resample audio if needed
+
         if sr != target_sr:
             transform = torchaudio.transforms.Resample(sr, target_sr)
             pad = int(0.5 * target_sr)
@@ -97,7 +66,7 @@ class ViSQOL:
                 rs_deg.append(rs_deg_i)
             ref_sig = torch.stack(rs_ref)
             deg_sig = torch.stack(rs_deg)
-        # save audio chunks to tmp dir and create csv
+
         tmp_dir = Path(tempfile.mkdtemp())
         try:
             tmp_input_csv_path = tmp_dir / "input.csv"
@@ -130,11 +99,11 @@ class ViSQOL:
             return tmp_dir, None, None, None
 
     def _flush_files(self, tmp_dir: tp.Union[Path, str]):
-        # flush tmp files used to compute ViSQOL.
+
         shutil.rmtree(str(tmp_dir))
 
     def _collect_moslqo_score(self, results_csv_path: tp.Union[Path, str]) -> float:
-        # collect results for each evaluated pair and return averaged moslqo score.
+
         with open(results_csv_path, "r") as csv_file:
             reader = csv.DictReader(csv_file)
             moslqo_scores = [float(row["moslqo"]) for row in reader]
@@ -144,7 +113,7 @@ class ViSQOL:
                 return 0.0
 
     def _collect_debug_data(self, debug_json_path: tp.Union[Path, str]) -> dict:
-        # collect debug data for the visqol inference.
+
         with open(debug_json_path, "r") as f:
             data = json.load(f)
             return data
@@ -185,16 +154,6 @@ class ViSQOL:
         sr: int,
         pad_with_silence: bool = False,
     ):
-        """Calculate the ViSQOL metric for a pair of audio signals at a given sample rate.
-        Args:
-            ref_sig (torch.Tensor): Reference signals as [B, C, T].
-            deg_sig (torch.Tensor): Degraded signals as [B, C, T].
-            sr (int): Sample rate of the two audio signals.
-            pad_with_silence (bool): Whether to pad the file with silences as recommended
-                in visqol guidelines (see: https://github.com/google/visqol#general-guidelines-for-input).
-        Returns:
-            float: The ViSQOL score or mean score for the batch.
-        """
         logger.debug(f"Calculating visqol with mode={self.visqol_mode} on {len(ref_sig)} samples")
         tmp_dir, input_csv, results_csv, debug_json = self._prepare_files(
             ref_sig, deg_sig, sr, self.target_sr, pad_with_silence

@@ -20,16 +20,15 @@ class PositionalEncoding(nn.Module):
         div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
-        # pe = pe.unsqueeze(0).transpose(0, 1)
+
         self.register_buffer('pe', pe)
 
     def forward(self, x):
-        x = x + self.pe[:x.size(1), :]  # [WORD_NUM, BATCH, DIM]
+        x = x + self.pe[:x.size(1), :]
         return self.dropout(x)
 
 
 class FCBlock(nn.Module):
-    """ Fully Connected Block """
 
     def __init__(self, in_features, out_features, activation=None, bias=False, dropout=None, spectral_norm=False):
         super(FCBlock, self).__init__()
@@ -55,7 +54,6 @@ class FCBlock(nn.Module):
 
 
 class LinearNorm(nn.Module):
-    """ LinearNorm Projection """
 
     def __init__(self, in_features, out_features, bias=False, spectral_norm=False):
         super(LinearNorm, self).__init__()
@@ -79,7 +77,6 @@ class LinearNorm(nn.Module):
 
 
 class Conv1DBlock(nn.Module):
-    """ 1D Convolutional Block """
 
     def __init__(self, in_channels, out_channels, kernel_size, activation=None, dropout=None, spectral_norm=False):
         super(Conv1DBlock, self).__init__()
@@ -103,13 +100,13 @@ class Conv1DBlock(nn.Module):
         self.dropout = dropout
 
     def forward(self, x, mask=None):
-        # x = x.contiguous().transpose(1, 2)
+
         x = self.conv_layer(x)
 
         if self.dropout is not None:
             x = F.dropout(x, self.dropout, self.training)
 
-        # x = x.contiguous().transpose(1, 2)
+
         if mask is not None:
             x = x.masked_fill(mask.unsqueeze(-1), 0)
 
@@ -117,7 +114,6 @@ class Conv1DBlock(nn.Module):
 
 
 class ConvNorm(nn.Module):
-    """ 1D Convolution """
 
     def __init__(
         self,
@@ -155,7 +151,6 @@ class ConvNorm(nn.Module):
 
 
 class MultiHeadAttention(nn.Module):
-    """ Multi-Head Attention """
 
     def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1, layer_norm=False, spectral_norm=False):
         super(MultiHeadAttention, self).__init__()
@@ -188,17 +183,17 @@ class MultiHeadAttention(nn.Module):
         q = self.w_qs(q).view(sz_b, len_q, n_head, d_k)
         k = self.w_ks(k).view(sz_b, len_k, n_head, d_k)
         v = self.w_vs(v).view(sz_b, len_v, n_head, d_v)
-        q = q.permute(2, 0, 1, 3).contiguous().view(-1, len_q, d_k)  # (n*b) x lq x dk
-        k = k.permute(2, 0, 1, 3).contiguous().view(-1, len_k, d_k)  # (n*b) x lk x dk
-        v = v.permute(2, 0, 1, 3).contiguous().view(-1, len_v, d_v)  # (n*b) x lv x dv
+        q = q.permute(2, 0, 1, 3).contiguous().view(-1, len_q, d_k)
+        k = k.permute(2, 0, 1, 3).contiguous().view(-1, len_k, d_k)
+        v = v.permute(2, 0, 1, 3).contiguous().view(-1, len_v, d_v)
 
-        mask = mask.repeat(n_head, 1, 1)  # (n*b) x .. x ..
+        mask = mask.repeat(n_head, 1, 1)
         output, attn = self.attention(q, k, v, mask=mask)
 
         output = output.view(n_head, sz_b, len_q, d_v)
         output = (
             output.permute(1, 2, 0, 3).contiguous().view(sz_b, len_q, -1)
-        )  # b x lq x (n*dv)
+        )
 
         output = self.dropout(self.fc(output))
         output = output + residual
@@ -209,7 +204,6 @@ class MultiHeadAttention(nn.Module):
 
 
 class ScaledDotProductAttention(nn.Module):
-    """ Scaled Dot-Product Attention """
 
     def __init__(self, temperature):
         super(ScaledDotProductAttention, self).__init__()
@@ -228,12 +222,12 @@ class ScaledDotProductAttention(nn.Module):
         output = torch.bmm(attn, v)
 
         return output, attn
-    
+
 
 class SkipGatedBlock(nn.Module):
     def __init__(self, c_in, c_out, kernel_size, stride, padding):
         super(SkipGatedBlock, self).__init__()
-        # cin=1, cout=64, kernel_size=3, stride=1, padding=1
+
         self.conv = nn.Conv2d(c_in, c_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
         self.gate = nn.Conv2d(c_in, c_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
         self.skip_connection = c_in == c_out
@@ -242,7 +236,7 @@ class SkipGatedBlock(nn.Module):
         conv_output = self.conv(x)
         gated_output = torch.sigmoid(self.gate(x))
         output = conv_output * gated_output
-        if self.skip_connection: 
+        if self.skip_connection:
             output += x
         return output
 
@@ -278,7 +272,7 @@ class SkipSpect(nn.Module):
         self.conv = nn.Conv2d(c_in, c_out, kernel_size, stride, padding, bias = True)
         self.gate = nn.Conv2d(c_in, c_out, kernel_size, stride, padding, bias = True)
         self.connection = c_in == c_out
-    
+
     def forward(self, x):
         conv_output = self.conv(x)
         gate_output = torch.sigmoid(self.gate(x))
@@ -298,14 +292,14 @@ class Spect_Encoder(nn.Module):
             core = ReluSpect
         else:
             raise ValueError(f"Invalid block type: {block}")
-        
+
         layers = [core(c_in = input_channel, c_out = latent_dim, kernel_size = 3, stride = 1, padding = 1)]
 
         for i in range(n_layers - 1):
             layers.append(core(c_in = latent_dim, c_out = latent_dim, padding = i + 1, kernel_size = 2 * i + 3, stride = 1))
-        
+
         self.main = nn.Sequential(*layers)
-    
+
     def forward(self, x):
         return self.main(x)
 
@@ -314,13 +308,13 @@ class ReluWav(nn.Module):
     def __init__(self, c_in, c_out, kernel_size, stride, padding):
         super(ReluWav, self).__init__()
         self.conv = nn.Sequential(
-            nn.Conv1d(c_in, c_out, kernel_size, stride, padding),  # 使用一维卷积
-            nn.InstanceNorm1d(c_out),  # 使用一维实例归一化
+            nn.Conv1d(c_in, c_out, kernel_size, stride, padding),
+            nn.InstanceNorm1d(c_out),
             nn.LeakyReLU()
         )
 
     def forward(self, x):
-        # 确保输入x的维度是(batch_size, channels, length)
+
         return self.conv(x)
 
 class Conv2Encoder(nn.Module):
@@ -333,7 +327,7 @@ class Conv2Encoder(nn.Module):
         else:
             raise ValueError(f"Invalid block type: {block}")
 
-        # cin=1, cout=64, kernel_size=3, stride=1, padding=1
+
         layers = [core(c_in=input_channel, c_out=hidden_dim, kernel_size=3, stride=1, padding=1)]
 
         for i in range(n_layers-1):
@@ -352,7 +346,7 @@ class SkipLSTM(nn.Module):
         self.LSTM = nn.LSTM(input_channel, output_dim, num_layers)
         self.gate = nn.LSTM(input_channel, output_dim, num_layers)
         self.skip_connection = input_channel == output_dim
-    
+
     def forward(self, x):
         LSTM_output ,(h_LSTM, c_LSTM)= self.LSTM(x)
         gated_output ,(h_gate, c_gate)= self.gate(x)
@@ -361,7 +355,7 @@ class SkipLSTM(nn.Module):
         if self.skip_connection:
             output += x
         return output
-    
+
 class ReluLSTM(nn.Module):
     def __init__(self, input_channel, output_dim, num_layers):
         super(ReluLSTM, self).__init__()
@@ -370,7 +364,7 @@ class ReluLSTM(nn.Module):
             nn.InstanceNorm2d(output_dim),
             nn.LeakyReLU()
         )
-    
+
     def forward(self, x):
         output, (h_n, c_n) = self.LSTM_layers(x)
         return self.after_process(output)
@@ -386,10 +380,10 @@ class LSTM_Model(nn.Module):
             core = ReluLSTM
         else:
             raise ValueError(f"Invalid block type: {block}")
-        
+
         layers = [core(input_channel, hidden_dim, n_layers)]
 
         self.main = nn.Sequential(*layers)
-    
+
     def forward(self, x):
         return self.main(x)

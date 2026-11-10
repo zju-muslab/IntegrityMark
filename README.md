@@ -1,8 +1,6 @@
-# IntegrityMark
+# Proactive Audio Integrity Verification via Tamper-Resistant watermarking
 
-This is an official implementation of the paper **"IntegrityMark: Tamper-Resistant Watermarking for Real-Time Audio Integrity Protection"**
-
-**Abstract**:The vast stream of authentic audio from live stream-ing platforms has created a new attack surface for fabricatingdisinformation through malicious splicing. This threat subvertsexisting audio watermarking defenses, as their reliance on a staticcheck for watermark presence can verify a segment’s authenticity but is fundamentally blind to its sequential order. There remains a critical gap in guaranteeing sequential integrity beyond merely verifying the origin source. To fill this gap, we propose IntegrityMark, a watermark-based audio integrity verification system that enables active tamper detection and localization. We first design an audio watermarking framework for sample-level watermark generation and detection. When content integrity is compromised, IntegrityMark can report the watermark presence and corresponding watermark message at each sample point. On this basis, we verify audio integrity in a two-step mechanism. First, it checks for watermark survival through the watermark existence bit. Second, to detect in-source splicing, it verifies the continuity of sequential patterns by performing a dual-check of the watermark’s message state and duration. Experimental results show that IntegrityMark effectively detects tampering with 99.9% F1-score for cross-source (including AI-generated speech) and 97.5% for in-source attacks, while maintaining efficient streaming performance with 22.8ms latency.
+This is the official implementation of **"Proactive Audio Integrity Verification via Tamper-Resistant watermarking"**.
 
 ## Model Architecture
 
@@ -10,7 +8,7 @@ IntegrityMark consists of two main components working in tandem:
 
 | Watermark Generator | Watermark Detector |
 |---|---|
-| ![Generator Architecture](./pics/generator.pdf) | ![Detector Architecture](./pics/detector.pdf) |
+| ![Generator Architecture](./pics/generator.png) | ![Detector Architecture](./pics/detector.png) |
 
 **Key Features**:
 - **Sample-level watermark detection** for precise tampering localization
@@ -216,25 +214,3 @@ python eval/eval_language.py ckpt_path=checkpoints/model.pth
 # 7. Detection speed benchmarking
 python eval/eval_detection_speed.py ckpt_path=checkpoints/model.pth
 ```
-<!-- 
-## Evaluation Scripts Overview
-
-| Script | Purpose | Key Metrics |
-|--------|---------|------------|
-| `eval.py` | Basic quality & watermark | SNR, PESQ, STOI, detection accuracy |
-| `eval_distortion.py` | Robustness to distortions | Accuracy under noise, compression, filtering |
-| `eval_cross_source_attack.py` | Cross-source tampering | TPR, FPR, TIOU for insertion/replacement |
-| `eval_in_source_attack.py` | In-source tampering | TPR, FPR, TIOU for deletion/copy |
-| `eval_cross_domain.py` | Domain generalization | Performance across audio domains |
-| `eval_language.py` | Language transfer | Performance across languages |
-| `eval_detection_speed.py` | Detection latency | Inference time, throughput, memory |
-
-## Specialized Evaluations
-
-### Distortion Robustness
-
-Test watermark resilience to audio distortions:
-
-```bash
-python eval/eval_distortion.py ckpt_path=checkpoints/model.pth
-``` -->

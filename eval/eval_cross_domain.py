@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 
 from utils.tools import load_ckpt,save_ckpt
 from itertools import chain
-# from torch.optim.lr_scheduler import StepLR
+
 from scipy.stats import multivariate_normal
 
 from distortions.audio_effects import (
@@ -22,10 +22,10 @@ from distortions.audio_effects import (
 )
 from utils.wm_process import crop, MsgGenerator
 
-# from My_model.modules import Encoder, Decoder, Discriminator
 
-# from model.My_model.privacy_wm import WMEmbedder
-# from models.WMBuilder import WMEmbedder, WMExtractor
+
+
+
 from models.WMbuilder import WMEmbedder,WMExtractor
 from dataset.data import wav_dataset as used_dataset
 
@@ -55,7 +55,7 @@ def main(eval_args):
     csv_file_f = open(csv_file, 'w')
     csv_writer=csv.writer(csv_file_f)
     logfile='experiments/experments.result.log'
-    
+
     logger = get_logger(log_file=logfile)
     logger.info(f'time:{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}')
 
@@ -74,7 +74,7 @@ def main(eval_args):
 
     val_audios = used_dataset(config=eval_args.dataset,flag='test')
 
-    effects = get_audio_effects(eval_args.augmentation)  # noqa
+    effects = get_audio_effects(eval_args.augmentation)
     if 'speed' in effects:
         del effects['speed']
     if 'echo' in effects:
@@ -84,7 +84,7 @@ def main(eval_args):
 
     snr_fn=SISNR()
 
-    # test start
+
     results={   'snr':[],
                 'pesq':[],
                 'stoi':[],
@@ -95,7 +95,7 @@ def main(eval_args):
                 'tiou_rec':[],
                 'tiou_val':[]
             }
-            
+
     csv_str=['file','snr','stoi','pesq,det_acc','rec_acc','val_acc','tiou_det','tiou_rec','tiou_val']
     csv_writer.writerow(csv_str)
 
@@ -108,7 +108,7 @@ def main(eval_args):
             wm = embedder(x=x, sample_rate=16_000, message=msg_fix, temp_message=msg_total)
 
             x_wm = x+wm
-        
+
             wm_pred_neg = detector(x)
             wm_pred = detector(x_wm)
 
@@ -121,13 +121,13 @@ def main(eval_args):
             wm_pred_det = detector(x_wm_det)
             res_det,seg_det = post_process(wm_pred_det[0],window_size=63,return_seg=True)
 
-            # res_det=wm_pred[0]
-            # res_rec=wm_pred[1][:,:msg_rec_length,:]
-            # res_val=wm_pred[1][:,msg_rec_length:,:]
-            
+
+
+
+
             res_rec,seg_rec = post_process(wm_pred[1][:,:msg_rec_length,:],window_size=63,return_seg=True)
             res_val,seg_val = post_process(wm_pred[1][:,msg_rec_length:,:],window_size=63,return_seg=True)
-            # post_res = res
+
 
             pesq=pesq_fn(16000,x[0,0].detach().cpu().numpy(),x_wm[0,0].detach().cpu().numpy())
             snr=-snr_fn(x_wm,x)
@@ -140,7 +140,7 @@ def main(eval_args):
             tiou_det=calculate_tiou_fast(msg_det_seg[0],seg_det[0])
             tiou_rec=calculate_tiou_fast(msg_rec_seg,seg_rec[0])
             tiou_val=calculate_tiou_fast(msg_val_seg,seg_val[0])
-            
+
             results['snr'].append(snr.item())
             results['pesq'].append(pesq)
             results['stoi'].append(stoi)
@@ -150,7 +150,7 @@ def main(eval_args):
             results['tiou_det'].append(tiou_det)
             results['tiou_rec'].append(tiou_rec)
             results['tiou_val'].append(tiou_val)
-            
+
 
             csv_str.append(f'{snr.item():.3f}')
             csv_str.append(f'{pesq:.3f}')
@@ -161,7 +161,7 @@ def main(eval_args):
             csv_str.append(f'{tiou_det:.3f}')
             csv_str.append(f'{tiou_rec:.3f}')
             csv_str.append(f'{tiou_val:.3f}')
-            
+
 
             csv_writer.writerow(csv_str)
             csv_file_f.flush()
@@ -175,8 +175,8 @@ def main(eval_args):
     tiou_det_stats=[torch.tensor(results['tiou_det']).mean(),torch.tensor(results['tiou_det']).std()]
     tiou_rec_stats=[torch.tensor(results['tiou_rec']).mean(),torch.tensor(results['tiou_rec']).std()]
     tiou_val_stats=[torch.tensor(results['tiou_val']).mean(),torch.tensor(results['tiou_val']).std()]
-    
-    
+
+
     csv_str=['stats']
     csv_str.append(f'{snr_stats[0].item():.3f}({snr_stats[1].item():.3f})')
     csv_str.append(f'{pesq_stats[0].item():.3f}({pesq_stats[1].item():.3f})')

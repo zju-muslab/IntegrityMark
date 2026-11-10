@@ -3,7 +3,6 @@
 #
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
-
 import typing as tp
 
 import torchaudio
@@ -20,24 +19,6 @@ def get_2d_padding(kernel_size: tp.Tuple[int, int], dilation: tp.Tuple[int, int]
 
 
 class DiscriminatorSTFT(nn.Module):
-    """STFT sub-discriminator.
-
-    Args:
-        filters (int): Number of filters in convolutions.
-        in_channels (int): Number of input channels.
-        out_channels (int): Number of output channels.
-        n_fft (int): Size of FFT for each scale.
-        hop_length (int): Length of hop between STFT windows for each scale.
-        kernel_size (tuple of int): Inner Conv2d kernel sizes.
-        stride (tuple of int): Inner Conv2d strides.
-        dilations (list of int): Inner Conv2d dilation on the time dimension.
-        win_length (int): Window size for each scale.
-        normalized (bool): Whether to normalize by magnitude after stft.
-        norm (str): Normalization method.
-        activation (str): Activation function.
-        activation_params (dict): Parameters to provide to the activation function.
-        growth (int): Growth factor for the filters.
-    """
     def __init__(self, filters: int, in_channels: int = 1, out_channels: int = 1,
                  n_fft: int = 1024, hop_length: int = 256, win_length: int = 1024, max_filters: int = 1024,
                  filters_scale: int = 1, kernel_size: tp.Tuple[int, int] = (3, 9), dilations: tp.List = [1, 2, 4],
@@ -80,7 +61,7 @@ class DiscriminatorSTFT(nn.Module):
 
     def forward(self, x: torch.Tensor):
         fmap = []
-        z = self.spec_transform(x)  # [B, 2, Freq, Frames, 2]
+        z = self.spec_transform(x)
         z = torch.cat([z.real, z.imag], dim=1)
         z = rearrange(z, 'b c w t -> b c t w')
         for i, layer in enumerate(self.convs):
@@ -92,18 +73,6 @@ class DiscriminatorSTFT(nn.Module):
 
 
 class MultiScaleSTFTDiscriminator(MultiDiscriminator):
-    """Multi-Scale STFT (MS-STFT) discriminator.
-
-    Args:
-        filters (int): Number of filters in convolutions.
-        in_channels (int): Number of input channels.
-        out_channels (int): Number of output channels.
-        sep_channels (bool): Separate channels to distinct samples for stereo support.
-        n_ffts (Sequence[int]): Size of FFT for each scale.
-        hop_lengths (Sequence[int]): Length of hop between STFT windows for each scale.
-        win_lengths (Sequence[int]): Window size for each scale.
-        **kwargs: Additional args for STFTDiscriminator.
-    """
     def __init__(self, filters: int = 32, in_channels: int = 1, out_channels: int = 1, sep_channels: bool = False,
                  n_ffts: tp.List[int] = [1024, 2048, 512], hop_lengths: tp.List[int] = [256, 512, 128],
                  win_lengths: tp.List[int] = [1024, 2048, 512], **kwargs):

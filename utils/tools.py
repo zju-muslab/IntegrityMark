@@ -47,11 +47,11 @@ def save_ckpt(ckpt_dir, base_name, module_state_dict, epoch):
     torch.save(module_state_dict,
         os.path.join(ckpt_dir, base_name+"_ep_{}_{}.pth".format(epoch, now.strftime("%Y-%m-%d_%H_%M_%S"))),
     )
-    
 
-# 加载参数的函数
+
+
 def load_ckpt(checkpoint_path):
-    # 加载保存的字典
+
     checkpoint = torch.load(checkpoint_path)
     return checkpoint
 
@@ -113,9 +113,9 @@ def fidelity(a, b, sr):
     embeds_b = resamber_encoder.embed_utterance(wav_b)
     utterance_sim_matrix = cosine_similarity(embeds_a, embeds_b)
     spk_sim_matrix = utterance_sim_matrix
-    # pdb.set_trace()
+
     return snr_score, pesq_score, utterance_sim_matrix, spk_sim_matrix
-    
+
 
 
 import math
@@ -137,16 +137,16 @@ def get_score_2(wav_matrix, decoder, msg):
         this_decoded = decoder.test_forward(wav_matrix[:, :, i*len_per_seg:(i+1)*len_per_seg])
         this_bit = (this_decoded >= 0).eq(msg >= 0)
         segs_acc_true.append(this_bit.reshape(-1))
-        # pdb.set_trace()
+
     def count_common_bits(list1, list2, list3, list4):
         if len(list1) != 10 or len(list2) != 10 or len(list3) != 10 or len(list4) != 10:
             return "All lists must have a length of 10."
 
         common_count = 0
-        
+
         for i in range(10):
             if list1[i] == list2[i] == list3[i] == list4[i]:
                 common_count += 1
-                
+
         return common_count
     return [count_common_bits(segs_acc_true[0], segs_acc_true[1], segs_acc_true[2], segs_acc_true[3])]

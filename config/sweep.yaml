@@ -29,7 +29,7 @@ init_from_ckpt: False
 continue_from_ckpt: /home/chenqn/dev/watermark/outputs/ckpt/temp-chadd-bit0+8+2/temp-chadd-bit0+8+2_ep_19_2024-12-31_17_23_19.pth
 
 augmentation:
-  select_aug_mode: "weighted" 
+  select_aug_mode: "weighted"
   aug_starts_from: 10000
 
 wm_msg:
@@ -43,16 +43,16 @@ wm_msg:
 
 optimize:
   batch_size: 12
-  lr: 0.0005 #0.0005
-  lambda_wav: 10 #10
-  lambda_loud: 500 #1000
-  lambda_msmel: 1 #10
-  lambda_adv_g: 1 #5
-  lambda_adv_g_map: 0.1 #0.1
-  lambda_adv_d: 1 #1
-  lambda_wm_det: 50 #10
-  lambda_wm_rec_fix: 100 #100
-  lambda_wm_rec_temp: 200 #200
+  lr: 0.0005
+  lambda_wav: 10
+  lambda_loud: 500
+  lambda_msmel: 1
+  lambda_adv_g: 1
+  lambda_adv_g_map: 0.1
+  lambda_adv_d: 1
+  lambda_wm_det: 50
+  lambda_wm_rec_fix: 100
+  lambda_wm_rec_temp: 200
 
 
 crop:

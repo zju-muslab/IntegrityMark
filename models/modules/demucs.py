@@ -3,8 +3,6 @@
 #
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
-# author: adefossez
-
 import math
 import time
 
@@ -13,33 +11,10 @@ from torch import nn
 from torch.nn import functional as F
 
 from .resample import downsample2, upsample2
-# from .utils import capture_init
+
 
 class Demucs(nn.Module):
-    """
-    Demucs speech enhancement model.
-    Args:
-        - chin (int): number of input channels.
-        - chout (int): number of output channels.
-        - hidden (int): number of initial hidden channels.
-        - depth (int): number of layers.
-        - kernel_size (int): kernel size for each layer.
-        - stride (int): stride for each layer.
-        - causal (bool): if false, uses BiLSTM instead of LSTM.
-        - resample (int): amount of resampling to apply to the input/output.
-            Can be one of 1, 2 or 4.
-        - growth (float): number of channels is multiplied by this for every layer.
-        - max_hidden (int): maximum number of channels. Can be useful to
-            control the size/speed of the model.
-        - normalize (bool): if true, normalize the input.
-        - glu (bool): if true uses GLU instead of ReLU in 1x1 convolutions.
-        - rescale (float): controls custom weight initialization.
-            See https://arxiv.org/abs/1911.13254.
-        - floor (float): stability flooring when normalizing.
-        - sample_rate (float): sample_rate used for training the model.
 
-    """
-    # @capture_init
     def __init__(self,
                  chin=1,
                  chout=1,
@@ -104,14 +79,6 @@ class Demucs(nn.Module):
             rescale_module(self, reference=rescale)
 
     def valid_length(self, length):
-        """
-        Return the nearest valid length to use with the model so that
-        there is no time steps left over in a convolutions, e.g. for all
-        layers, size of the input - kernel_size % stride = 0.
-
-        If the mixture has a valid length, the estimated sources
-        will have exactly the same length.
-        """
         length = math.ceil(length * self.resample)
         for idx in range(self.depth):
             length = math.ceil((length - self.kernel_size) / self.stride) + 1
@@ -152,13 +119,13 @@ class Demucs(nn.Module):
         x = x.permute(1, 2, 0)
         x = x + msg_hidden.unsqueeze(-1).repeat(
             1, 1, x.shape[2]
-        )  # b x h -> b x h x t/f
-        
+        )
+
         for decode in self.decoder[:-1]:
             skip = skips.pop(-1)
             x = x + skip[..., :x.shape[-1]]
             x = decode(x)
-        x=self.decoder[-1](x) #最后一层不要skip，和音频太像
+        x=self.decoder[-1](x)
 
         if self.resample == 2:
             x = downsample2(x)
@@ -171,10 +138,6 @@ class Demucs(nn.Module):
 
 
 def fast_conv(conv, x):
-    """
-    Faster convolution evaluation if either kernel size is 1
-    or length of sequence is 1.
-    """
     batch, chin, length = x.shape
     chout, chin, kernel = conv.weight.shape
     assert batch == 1
@@ -192,22 +155,6 @@ def fast_conv(conv, x):
 
 
 class DemucsStreamer:
-    """
-    Streaming implementation for Demucs. It supports being fed with any amount
-    of audio at a time. You will get back as much audio as possible at that
-    point.
-
-    Args:
-        - demucs (Demucs): Demucs model.
-        - dry (float): amount of dry (e.g. input) signal to keep. 0 is maximum
-            noise removal, 1 just returns the input signal. Small values > 0
-            allows to limit distortions.
-        - num_frames (int): number of frames to process at once. Higher values
-            will increase overall latency but improve the real time factor.
-        - resample_lookahead (int): extra lookahead used for the resampling.
-        - resample_buffer (int): size of the buffer of previous inputs/outputs
-            kept for resampling.
-    """
     def __init__(self, demucs,
                  dry=0,
                  num_frames=1,
@@ -247,20 +194,12 @@ class DemucsStreamer:
         return self.total_time / self.frames
 
     def flush(self):
-        """
-        Flush remaining audio by padding it with zero. Call this
-        when you have no more input and want to get back the last chunk of audio.
-        """
         pending_length = self.pending.shape[1]
         padding = th.zeros(self.demucs.chin, self.total_length, device=self.pending.device)
         out = self.feed(padding)
         return out[:, :pending_length]
 
     def feed(self, wav):
-        """
-        Apply the model to mix using true real time evaluation.
-        Normalization is done online as is the resampling.
-        """
         begin = time.time()
         demucs = self.demucs
         resample_buffer = self.resample_buffer
@@ -292,8 +231,8 @@ class DemucsStreamer:
                 frame = upsample2(upsample2(frame))
             elif resample == 2:
                 frame = upsample2(frame)
-            frame = frame[:, resample * resample_buffer:]  # remove pre sampling buffer
-            frame = frame[:, :resample * self.frame_length]  # remove extra samples after window
+            frame = frame[:, resample * resample_buffer:]
+            frame = frame[:, :resample * self.frame_length]
 
             out, extra = self._separate_frame(frame)
             padded_out = th.cat([self.resample_out, out, extra], 1)
@@ -332,7 +271,7 @@ class DemucsStreamer:
             stride //= demucs.stride
             length = x.shape[2]
             if idx == demucs.depth - 1:
-                # This is sligthly faster for the last conv
+
                 x = fast_conv(encode[0], x)
                 x = encode[1](x)
                 x = fast_conv(encode[2], x)
@@ -356,10 +295,10 @@ class DemucsStreamer:
         x = x.permute(2, 0, 1)
         x, self.lstm_state = demucs.lstm(x, self.lstm_state)
         x = x.permute(1, 2, 0)
-        # In the following, x contains only correct samples, i.e. the one
-        # for which each time position is covered by two window of the upper layer.
-        # extra contains extra samples to the right, and is used only as a
-        # better padding for the online resampling.
+
+
+
+
         extra = None
         for idx, decode in enumerate(demucs.decoder):
             skip = skips.pop(-1)

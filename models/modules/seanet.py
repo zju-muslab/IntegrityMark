@@ -3,9 +3,6 @@
 #
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
-#
-# Vendor from https://github.com/facebookresearch/audiocraft
-
 import math
 import typing as tp
 
@@ -27,7 +24,7 @@ from torch.nn.utils import spectral_norm
 try:
     from torch.nn.utils.parametrizations import weight_norm
 except ImportError:
-    # Old Pytorch
+
     from torch.nn.utils import weight_norm
 
 
@@ -44,22 +41,6 @@ class SEANetWMEmbedder(nn.Module):
 
 
 class SEANetResnetBlock(nn.Module):
-    """Residual block from SEANet model.
-
-    Args:
-        dim (int): Dimension of the input/output.
-        kernel_sizes (list): List of kernel sizes for the convolutions.
-        dilations (list): List of dilations for the convolutions.
-        activation (str): Activation function.
-        activation_params (dict): Parameters to provide to the activation function.
-        norm (str): Normalization method.
-        norm_params (dict): Parameters to provide to the underlying normalization used along with the convolution.
-        causal (bool): Whether to use fully causal convolution.
-        pad_mode (str): Padding mode for the convolutions.
-        compress (int): Reduced dimensionality in residual branches (from Demucs v3).
-        true_skip (bool): Whether to use true skip connection or a simple
-            (streamable) convolution as the skip connection.
-    """
 
     def __init__(
         self,
@@ -118,33 +99,6 @@ class SEANetResnetBlock(nn.Module):
 
 
 class SEANetEncoder(nn.Module):
-    """SEANet encoder.
-
-    Args:
-        channels (int): Audio channels.
-        dimension (int): Intermediate representation dimension.
-        n_filters (int): Base width for the model.
-        n_residual_layers (int): nb of residual layers.
-        ratios (Sequence[int]): kernel size and stride ratios. The encoder uses downsampling ratios instead of
-            upsampling ratios, hence it will use the ratios in the reverse order to the ones specified here
-            that must match the decoder order. We use the decoder order as some models may only employ the decoder.
-        activation (str): Activation function.
-        activation_params (dict): Parameters to provide to the activation function.
-        norm (str): Normalization method.
-        norm_params (dict): Parameters to provide to the underlying normalization used along with the convolution.
-        kernel_size (int): Kernel size for the initial convolution.
-        last_kernel_size (int): Kernel size for the initial convolution.
-        residual_kernel_size (int): Kernel size for the residual layers.
-        dilation_base (int): How much to increase the dilation with each layer.
-        causal (bool): Whether to use fully causal convolution.
-        pad_mode (str): Padding mode for the convolutions.
-        true_skip (bool): Whether to use true skip connection or a simple
-            (streamable) convolution as the skip connection in the residual network blocks.
-        compress (int): Reduced dimensionality in residual branches (from Demucs v3).
-        lstm (int): Number of LSTM layers at the end of the encoder.
-        disable_norm_outer_blocks (int): Number of blocks for which we don't apply norm.
-            For the encoder, it corresponds to the N first blocks.
-    """
 
     def __init__(
         self,
@@ -176,7 +130,7 @@ class SEANetEncoder(nn.Module):
         del ratios
         self.n_residual_layers = n_residual_layers
         self.hop_length = np.prod(self.ratios)
-        self.n_blocks = len(self.ratios) + 2  # first and last conv + residual blocks
+        self.n_blocks = len(self.ratios) + 2
         self.disable_norm_outer_blocks = disable_norm_outer_blocks
         assert (
             self.disable_norm_outer_blocks >= 0
@@ -199,10 +153,10 @@ class SEANetEncoder(nn.Module):
                 pad_mode=pad_mode,
             )
         ]
-        # Downsample to raw audio scale
+
         for i, ratio in enumerate(self.ratios):
             block_norm = "none" if self.disable_norm_outer_blocks >= i + 2 else norm
-            # Add residual layers
+
             for j in range(n_residual_layers):
                 model += [
                     SEANetResnetBlock(
@@ -220,7 +174,7 @@ class SEANetEncoder(nn.Module):
                     )
                 ]
 
-            # Add downsampling layers
+
             model += [
                 act(**activation_params),
                 StreamableConv1d(
@@ -261,20 +215,12 @@ class SEANetEncoder(nn.Module):
 
 
 class SEANetEncoderKeepDimension(SEANetEncoder):
-    """
-    similar architecture to the SEANet encoder but with an extra step that
-    projects the output dimension to the same input dimension by repeating
-    the sequential
-
-    Args:
-        SEANetEncoder (_type_): _description_
-    """
 
     def __init__(self, *args, **kwargs):
 
         self.output_dim = kwargs.pop("output_dim")
         super().__init__(*args, **kwargs)
-        # Adding a reverse convolution layer
+
         self.reverse_convolution = nn.ConvTranspose1d(
             in_channels=self.dimension,
             out_channels=self.output_dim,
@@ -287,40 +233,11 @@ class SEANetEncoderKeepDimension(SEANetEncoder):
         orig_nframes = x.shape[-1]
         x = self.model(x)
         x = self.reverse_convolution(x)
-        # make sure dim didn't change
+
         return x[:, :, :orig_nframes]
 
 
 class SEANetDecoder(nn.Module):
-    """SEANet decoder.
-
-    Args:
-        channels (int): Audio channels.
-        dimension (int): Intermediate representation dimension.
-        n_filters (int): Base width for the model.
-        n_residual_layers (int): nb of residual layers.
-        ratios (Sequence[int]): kernel size and stride ratios.
-        activation (str): Activation function.
-        activation_params (dict): Parameters to provide to the activation function.
-        final_activation (str): Final activation function after all convolutions.
-        final_activation_params (dict): Parameters to provide to the activation function.
-        norm (str): Normalization method.
-        norm_params (dict): Parameters to provide to the underlying normalization used along with the convolution.
-        kernel_size (int): Kernel size for the initial convolution.
-        last_kernel_size (int): Kernel size for the initial convolution.
-        residual_kernel_size (int): Kernel size for the residual layers.
-        dilation_base (int): How much to increase the dilation with each layer.
-        causal (bool): Whether to use fully causal convolution.
-        pad_mode (str): Padding mode for the convolutions.
-        true_skip (bool): Whether to use true skip connection or a simple.
-            (streamable) convolution as the skip connection in the residual network blocks.
-        compress (int): Reduced dimensionality in residual branches (from Demucs v3).
-        lstm (int): Number of LSTM layers at the end of the encoder.
-        disable_norm_outer_blocks (int): Number of blocks for which we don't apply norm.
-            For the decoder, it corresponds to the N last blocks.
-        trim_right_ratio (float): Ratio for trimming at the right of the transposed convolution under the causal setup.
-            If equal to 1.0, it means that all the trimming is done at the right.
-    """
 
     def __init__(
         self,
@@ -355,7 +272,7 @@ class SEANetDecoder(nn.Module):
         del ratios
         self.n_residual_layers = n_residual_layers
         self.hop_length = np.prod(self.ratios)
-        self.n_blocks = len(self.ratios) + 2  # first and last conv + residual blocks
+        self.n_blocks = len(self.ratios) + 2
         self.disable_norm_outer_blocks = disable_norm_outer_blocks
         assert (
             self.disable_norm_outer_blocks >= 0
@@ -384,14 +301,14 @@ class SEANetDecoder(nn.Module):
         if lstm:
             model += [StreamableLSTM(mult * n_filters, num_layers=lstm)]
 
-        # Upsample to raw audio scale
+
         for i, ratio in enumerate(self.ratios):
             block_norm = (
                 "none"
                 if self.disable_norm_outer_blocks >= self.n_blocks - (i + 1)
                 else norm
             )
-            # Add upsampling layers
+
             model += [
                 act(**activation_params),
                 StreamableConvTranspose1d(
@@ -405,7 +322,7 @@ class SEANetDecoder(nn.Module):
                     trim_right_ratio=trim_right_ratio,
                 ),
             ]
-            # Add residual layers
+
             for j in range(n_residual_layers):
                 model += [
                     SEANetResnetBlock(
@@ -425,7 +342,7 @@ class SEANetDecoder(nn.Module):
 
             mult //= 2
 
-        # Add final layers
+
         model += [
             act(**activation_params),
             StreamableConv1d(
@@ -438,7 +355,7 @@ class SEANetDecoder(nn.Module):
                 pad_mode=pad_mode,
             ),
         ]
-        # Add optional final activation to decoder (eg. tanh)
+
         if final_activation is not None:
             final_act = getattr(nn, final_activation)
             final_activation_params = final_activation_params or {}
@@ -453,9 +370,6 @@ class SEANetDecoder(nn.Module):
 
 
 class StreamableConv1d(nn.Module):
-    """Conv1d with some builtin handling of asymmetric or causal padding
-    and normalization.
-    """
 
     def __init__(
         self,
@@ -472,7 +386,7 @@ class StreamableConv1d(nn.Module):
         pad_mode: str = "reflect",
     ):
         super().__init__()
-        # warn user on unusual setup between dilation and stride
+
         if stride > 1 and dilation > 1:
             warnings.warn(
                 "StreamableConv1d has been initialized with stride > 1 and dilation > 1"
@@ -500,16 +414,16 @@ class StreamableConv1d(nn.Module):
         dilation = self.conv.conv.dilation[0]
         kernel_size = (
             kernel_size - 1
-        ) * dilation + 1  # effective kernel size with dilations
+        ) * dilation + 1
         padding_total = kernel_size - stride
         extra_padding = get_extra_padding_for_conv1d(
             x, kernel_size, stride, padding_total
         )
         if self.causal:
-            # Left padding for causal
+
             x = pad1d(x, (padding_total, extra_padding), mode=self.pad_mode)
         else:
-            # Asymmetric padding required for odd strides
+
             padding_right = padding_total // 2
             padding_left = padding_total - padding_right
             x = pad1d(
@@ -519,9 +433,6 @@ class StreamableConv1d(nn.Module):
 
 
 class StreamableConvTranspose1d(nn.Module):
-    """ConvTranspose1d with some builtin handling of asymmetric or causal padding
-    and normalization.
-    """
 
     def __init__(
         self,
@@ -558,18 +469,18 @@ class StreamableConvTranspose1d(nn.Module):
 
         y = self.convtr(x)
 
-        # We will only trim fixed padding. Extra padding from `pad_for_conv1d` would be
-        # removed at the very end, when keeping only the right length for the output,
-        # as removing it here would require also passing the length at the matching layer
-        # in the encoder.
+
+
+
+
         if self.causal:
-            # Trim the padding on the right according to the specified ratio
-            # if trim_right_ratio = 1.0, trim everything from right
+
+
             padding_right = math.ceil(padding_total * self.trim_right_ratio)
             padding_left = padding_total - padding_right
             y = unpad1d(y, (padding_left, padding_right))
         else:
-            # Asymmetric padding required for odd strides
+
             padding_right = padding_total // 2
             padding_left = padding_total - padding_right
             y = unpad1d(y, (padding_left, padding_right))
@@ -588,17 +499,14 @@ def apply_parametrization_norm(module: nn.Module, norm: str = "none"):
     elif norm == "spectral_norm":
         return spectral_norm(module)
     else:
-        # We already check was in CONV_NORMALIZATION, so any other choice
-        # doesn't need reparametrization.
+
+
         return module
 
 
 def get_norm_module(
     module: nn.Module, causal: bool = False, norm: str = "none", **norm_kwargs
 ):
-    """Return the proper normalization module. If causal is True, this will ensure the returned
-    module is causal, or return an error if the normalization doesn't support causal evaluation.
-    """
     assert norm in CONV_NORMALIZATIONS
     if norm == "time_group_norm":
         if causal:
@@ -612,7 +520,6 @@ def get_norm_module(
 def get_extra_padding_for_conv1d(
     x: torch.Tensor, kernel_size: int, stride: int, padding_total: int = 0
 ) -> int:
-    """See `pad_for_conv1d`."""
     length = x.shape[-1]
     n_frames = (length - kernel_size + padding_total) / stride + 1
     ideal_length = (math.ceil(n_frames) - 1) * stride + (kernel_size - padding_total)
@@ -622,16 +529,6 @@ def get_extra_padding_for_conv1d(
 def pad_for_conv1d(
     x: torch.Tensor, kernel_size: int, stride: int, padding_total: int = 0
 ):
-    """Pad for a convolution to make sure that the last window is full.
-    Extra padding is added at the end. This is required to ensure that we can rebuild
-    an output of the same length, as otherwise, even with padding, some time steps
-    might get removed.
-    For instance, with total padding = 4, kernel size = 4, stride = 2:
-        0 0 1 2 3 4 5 0 0   # (0s are padding)
-        1   2   3           # (output frames of a convolution, last 0 is never used)
-        0 0 1 2 3 4 5 0     # (output of tr. conv., but pos. 5 is going to get removed as padding)
-            1 2 3 4         # once you removed padding, we are missing one time step !
-    """
     extra_padding = get_extra_padding_for_conv1d(x, kernel_size, stride, padding_total)
     return F.pad(x, (0, extra_padding))
 
@@ -642,9 +539,6 @@ def pad1d(
     mode: str = "constant",
     value: float = 0.0,
 ):
-    """Tiny wrapper around F.pad, just to allow for reflect padding on small input.
-    If this is the case, we insert extra 0 padding to the right before the reflection happen.
-    """
     length = x.shape[-1]
     padding_left, padding_right = paddings
     assert padding_left >= 0 and padding_right >= 0, (padding_left, padding_right)
@@ -662,7 +556,6 @@ def pad1d(
 
 
 def unpad1d(x: torch.Tensor, paddings: tp.Tuple[int, int]):
-    """Remove padding from x, handling properly zero padding. Only for 1d!"""
     padding_left, padding_right = paddings
     assert padding_left >= 0 and padding_right >= 0, (padding_left, padding_right)
     assert (padding_left + padding_right) <= x.shape[-1]
@@ -671,9 +564,6 @@ def unpad1d(x: torch.Tensor, paddings: tp.Tuple[int, int]):
 
 
 class NormConv1d(nn.Module):
-    """Wrapper around Conv1d and normalization applied to this conv
-    to provide a uniform interface across normalization approaches.
-    """
 
     def __init__(
         self,
@@ -695,9 +585,6 @@ class NormConv1d(nn.Module):
 
 
 class NormConv2d(nn.Module):
-    """Wrapper around Conv2d and normalization applied to this conv
-    to provide a uniform interface across normalization approaches.
-    """
 
     def __init__(
         self,
@@ -718,9 +605,6 @@ class NormConv2d(nn.Module):
 
 
 class NormConvTranspose1d(nn.Module):
-    """Wrapper around ConvTranspose1d and normalization applied to this conv
-    to provide a uniform interface across normalization approaches.
-    """
 
     def __init__(
         self,
@@ -744,9 +628,6 @@ class NormConvTranspose1d(nn.Module):
 
 
 class NormConvTranspose2d(nn.Module):
-    """Wrapper around ConvTranspose2d and normalization applied to this conv
-    to provide a uniform interface across normalization approaches.
-    """
 
     def __init__(
         self,
@@ -767,9 +648,6 @@ class NormConvTranspose2d(nn.Module):
         return x
 
 class StreamableLSTM(nn.Module):
-    """LSTM without worrying about the hidden state, nor the layout of the data.
-    Expects input as convolutional layout.
-    """
 
     def __init__(self, dimension: int, num_layers: int = 2, skip: bool = True):
         super().__init__()

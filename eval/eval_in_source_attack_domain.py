@@ -12,13 +12,13 @@ import random
 import matplotlib.pyplot as plt
 
 from collections import deque
-import torch  # 仅当 state 需要 tensor 操作时
+import torch
 
 import random
 
 from utils.tools import load_ckpt,save_ckpt
 from itertools import chain
-# from torch.optim.lr_scheduler import StepLR
+
 from scipy.stats import multivariate_normal
 
 from distortions.audio_effects import (
@@ -27,10 +27,10 @@ from distortions.audio_effects import (
 )
 from utils.wm_process import crop, MsgGenerator
 
-# from My_model.modules import Encoder, Decoder, Discriminator
 
-# from model.My_model.privacy_wm import WMEmbedder
-# from models.WMBuilder import WMEmbedder, WMExtractor
+
+
+
 from models.WMbuilder import WMEmbedder,WMExtractor
 from dataset.data import wav_dataset as used_dataset
 
@@ -54,13 +54,13 @@ from statistics import mean
 debug=False
 device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# ckpt_path='/home/chenqn/dev/watermark/outputs/ckpt/0+0+4/0+0+4_ep_31_2025-02-26_19_31_56.pth'
-# ckpt_path='/home/chenqn/dev/watermark/outputs/ckpt/0+0+4/0+0+4_ep_40_2025-02-27_00_10_39.pth'
-# ckpt_path='/home/chenqn/dev/watermark/outputs/ckpt/0+0+4/0+0+4_ep_36_2025-02-28_00_52_37.pth'
-# ckpt_path='/home/chenqn/dev/watermark/outputs/ckpt/0+0+4/0+0+4_ep_40_2025-02-28_03_54_05.pth'
-# ckpt_path = '/home/chenqn/dev/watermark/outputs/ckpt/0+0+4/0+0+4_ep_49_2025-03-01_18_45_58.pth'
+
+
+
+
+
 ckpt_path = '/mushome/chenqn/dev/watermark/outputs/ckpt/0+0+4/0+0+4_ep_88_2026-01-15_21_34_30.pth'
-# ckpt_path='/home/chenqn/dev/watermark/outputs/ckpt/0+2+4_32bps/0+2+4_32bps_ep_21_2025-02-22_20_52_37.pth'
+
 
 language_paths={
     'en':'/data0/datasets/CommonVoice/en/clips',
@@ -88,7 +88,7 @@ def main(eval_args):
     ckpt_config = os.path.dirname(ckpt_path) + '/hydra_config.yaml'
     ckpt_file_name = os.path.basename(ckpt_path).split('.')[0]
     logfile='experiments/in_source_attack_eval/domain/experments.result.log'
-    
+
     logger = get_logger(log_file=logfile)
     logger.info(f'time:{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}')
 
@@ -131,12 +131,12 @@ def main(eval_args):
                 if valid_cnt==cnt_limit:
                     break
                 x = sample["matrix"].reshape(1,1,-1).to(device)
-                if x.shape[-1] < 64000: 
+                if x.shape[-1] < 64000:
                     cnt+=1
                     print('skip', cnt)
                     continue
 
-                max_length = 10 * 16_000  # 8 seconds at 16kHz sample rate
+                max_length = 10 * 16_000
                 if x.shape[-1] > max_length:
                     start = random.randint(0, x.shape[-1] - max_length)
                     x = x[:, :, start:start + max_length]
@@ -151,26 +151,35 @@ def main(eval_args):
                 x_wm = x+wm
                 tamper_x_wm, discrete_points = in_source_replace(x_wm)
                 discrete_points.sort()
-                
-                wm_pred_tamper = detector(tamper_x_wm)
-                
 
-                
+                wm_pred_tamper = detector(tamper_x_wm)
+
+
+
                 res_det_tamper,seg_det_tamper = post_process(wm_pred_tamper[1],window_size=31,return_seg=True)
 
-                
-                
-                tp, fp, tn, fn, le = seg_results(seg_det_tamper[0], discrete_points, debug=debug)
 
-                # label_neg = []
-                # wm_pred_neg = detector(x_wm)
-                # res_det_neg,seg_det_neg = post_process(wm_pred_neg[1],window_size=31,return_seg=True)
-                # tp2, fp2, tn2, fn2, _ = seg_results(seg_det_neg[0], label_neg, debug=debug)
-                # tp=tp+tp2
-                # tn=tn+tn2
-                # fp=fp+fp2
-                # fn=fn+fn2
-                
+
+                tp, fp, tn, fn, le = seg_results(
+                    seg_det_tamper[0],
+                    discrete_points,
+                    debug=debug,
+                    manifest=msg_generator.last_manifests[0],
+                    master_key=msg_generator.master_key,
+                    history_size=getattr(wm_args.wm_msg.val, "history_size", 8),
+                    check_window=getattr(wm_args.wm_msg.val, "lookahead_window", 5),
+                    tolerated_errors=getattr(wm_args.wm_msg.val, "length_tolerance", 64),
+                )
+
+
+
+
+
+
+
+
+
+
                 results['TP'].append(tp)
                 results['TN'].append(tn)
                 results['FP'].append(fp)
@@ -206,7 +215,7 @@ def main(eval_args):
                 csv_str.append(f'FPR:{FPR:.3f}')
                 csv_str.append(f'FNR:{FNR:.3f}')
                 csv_str.append(f'{mean(le) if len(le)>0 else -1}')
-            
+
                 csv_writer.writerow(csv_str)
                 csv_file_fn.flush()
 
@@ -220,7 +229,7 @@ def main(eval_args):
         TNR = TN / (TN + FP) if (TN + FP) != 0 else 0
         FPR = FP / (FP + TN) if (FP + TN) != 0 else 0
         FNR = FN / (FN + TP) if (FN + TP) != 0 else 0
-        
+
         LE = mean(results["le"])
 
         precision = TP / (TP + FP) if (TP + FP) > 0 else 0.0

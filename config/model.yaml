@@ -1,7 +1,7 @@
 model:
   msg_dimension:
     demucs: 768
-  
+
   temp_msg_dimension:
     demucs: 64
 
@@ -115,7 +115,7 @@ model:
     n_fft: 1024
     hop_length: 256
     win_length: 1024
-    block: 'skip' #'skip', 'relu'
+    block: 'skip'
     layers_CE: 3
     layers_EM: 6
     latent_dim: 128
@@ -159,7 +159,7 @@ model:
 
 
   conv2:
-    block: 'skip' #'skip', 'relu'
+    block: 'skip'
     layers_CE: 3
     layers_EM: 6
     hidden_dim: 64
@@ -167,6 +167,6 @@ model:
 
 
   test:
-    model_path: "results/ckpt/half_vunlerable_watermark/pth" 
+    model_path: "results/ckpt/half_vunlerable_watermark/pth"
     model_name: False
     index: -1

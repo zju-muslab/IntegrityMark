@@ -34,21 +34,21 @@ augmentation:
       amount: 20
     mp3_compression:
       sample_rate: ${sample_rate}
-      bitrate: 128k # should be a string e.g. "8k", "32k".. cf ffmpeg to see available bitrates
+      bitrate: 128k
     aac_compression:
       sample_rate: ${sample_rate}
-      bitrate: 128k # should be a string e.g. "8k", "32k".. cf ffmpeg to see available bitrates
-      lowpass_freq: null # don't apply low pass freq to ffmpeg aac compression
+      bitrate: 128k
+      lowpass_freq: null
 
-  select_aug_mode: "weighted" 
-    # other are 'all' and 'use_eval_acc', used to sample augmentations, `fixed` uses the prob from aug_weights, `all` uses all agmentations every step
-    # `use_eval_acc` changes the weights based on the accuracies at evaluation time
-    # `none` uses the prob from aug_weights, but does not apply any augmentation
+  select_aug_mode: "weighted"
+
+
+
 
   aug_weights:
     speed: 0
     updownresample: 0.2
-    echo: 0 # nan
+    echo: 0
     quantize_audio: 0.2
     pink_noise: 0.2
     random_noise: 0.2
@@ -58,9 +58,9 @@ augmentation:
     smooth: 0.2
     boost_audio: 0.2
     duck_audio: 0.2
-    mp3_compression: 0 # eval only never use in training even if eval_acc low
-    aac_compression: 0 # eval only never use in training even if eval_acc low
+    mp3_compression: 0
+    aac_compression: 0
     encodec: 0
-    identity: 0 # no augmentation
+    identity: 0
 
   n_max_aug: 3

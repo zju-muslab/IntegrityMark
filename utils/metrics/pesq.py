@@ -3,7 +3,6 @@
 #
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
-
 import julius
 import pesq
 
@@ -12,10 +11,6 @@ import torchmetrics
 
 
 class PesqMetric(torchmetrics.Metric):
-    """Metric for Perceptual Evaluation of Speech Quality.
-    (https://doi.org/10.5281/zenodo.6549559)
-
-    """
 
     sum_pesq: torch.Tensor
     total: torch.Tensor
@@ -39,7 +34,7 @@ class PesqMetric(torchmetrics.Metric):
                 self.total += 1
             except (
                 pesq.NoUtterancesError
-            ):  # this error can append when the sample don't contain speech
+            ):
                 pass
 
     def compute(self) -> torch.Tensor:

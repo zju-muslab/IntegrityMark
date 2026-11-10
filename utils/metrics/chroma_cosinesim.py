@@ -3,7 +3,6 @@
 #
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
-
 import torch
 import torchmetrics
 
@@ -12,19 +11,6 @@ from ..modules.chroma import ChromaExtractor
 
 
 class ChromaCosineSimilarityMetric(torchmetrics.Metric):
-    """Chroma cosine similarity metric.
-
-    This metric extracts a chromagram for a reference waveform and
-    a generated waveform and compares each frame using the cosine similarity
-    function. The output is the mean cosine similarity.
-
-    Args:
-        sample_rate (int): Sample rate used by the chroma extractor.
-        n_chroma (int): Number of chroma used by the chroma extractor.
-        radix2_exp (int): Exponent for the chroma extractor.
-        argmax (bool): Whether the chroma extractor uses argmax.
-        eps (float): Epsilon for cosine similarity computation.
-    """
     def __init__(self, sample_rate: int, n_chroma: int, radix2_exp: int, argmax: bool, eps: float = 1e-8):
         super().__init__()
         self.chroma_sample_rate = sample_rate
@@ -37,7 +23,6 @@ class ChromaCosineSimilarityMetric(torchmetrics.Metric):
 
     def update(self, preds: torch.Tensor, targets: torch.Tensor,
                sizes: torch.Tensor, sample_rates: torch.Tensor) -> None:
-        """Compute cosine similarity between chromagrams and accumulate scores over the dataset."""
         if preds.size(0) == 0:
             return
 
@@ -52,7 +37,7 @@ class ChromaCosineSimilarityMetric(torchmetrics.Metric):
         assert torch.all(sample_rates == sample_rates[0].item()), "All sample rates are not the same in the batch"
 
         device = self.weight.device
-        preds, targets = preds.to(device), targets.to(device)  # type: ignore
+        preds, targets = preds.to(device), targets.to(device)
         sample_rate = sample_rates[0].item()
         preds = convert_audio(preds, from_rate=sample_rate, to_rate=self.chroma_sample_rate, to_channels=1)
         targets = convert_audio(targets, from_rate=sample_rate, to_rate=self.chroma_sample_rate, to_channels=1)
@@ -63,10 +48,9 @@ class ChromaCosineSimilarityMetric(torchmetrics.Metric):
             t = int(chroma_lens[i].item())
             cosine_sim = torch.nn.functional.cosine_similarity(
                 gt_chroma[i, :t], gen_chroma[i, :t], dim=1, eps=self.eps)
-            self.cosine_sum += cosine_sim.sum(dim=0)  # type: ignore
-            self.weight += torch.tensor(t)  # type: ignore
+            self.cosine_sum += cosine_sim.sum(dim=0)
+            self.weight += torch.tensor(t)
 
     def compute(self) -> float:
-        """Computes the average cosine similarty across all generated/target chromagrams pairs."""
-        assert self.weight.item() > 0, "Unable to compute with total number of comparisons <= 0"  # type: ignore
-        return (self.cosine_sum / self.weight).item()  # type: ignore
+        assert self.weight.item() > 0, "Unable to compute with total number of comparisons <= 0"
+        return (self.cosine_sum / self.weight).item()

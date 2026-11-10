@@ -28,7 +28,7 @@ def search(path, mypath):
         else:
             if re.match(pattern,os.path.splitext(i)[1],re.I):
                 d = os.path.join(mypath,i)
-                # shutil.move(p,d)
+
                 flac_to_wav(p,d)
 
 if __name__ == '__main__':
