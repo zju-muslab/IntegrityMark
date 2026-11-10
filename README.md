@@ -1,6 +1,6 @@
-# Proactive Audio Integrity Verification via Tamper-Resistant watermarking
+# Proactive Audio Integrity Verification via Tamper-Resistant Watermarking
 
-This is the official implementation of **"Proactive Audio Integrity Verification via Tamper-Resistant watermarking"**.
+This is the official implementation of **"Proactive Audio Integrity Verification via Tamper-Resistant Watermarking"**.
 
 ## Model Architecture
 
